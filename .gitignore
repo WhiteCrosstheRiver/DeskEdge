@@ -1,0 +1,21 @@
+bin/
+obj/
+.vs/
+artifacts/
+dist/
+*.user
+build/
+vendor/**/.git/
+
+# Keep comparison checkouts local; ship only the two build dependencies.
+vendor/*
+!vendor/imgui/
+!vendor/nlohmann-json/
+
+# Local credentials and editor settings.
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+.idea/

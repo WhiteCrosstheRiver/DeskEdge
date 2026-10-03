@@ -1,0 +1,109 @@
+[
+  {
+    "url": "https://github.com/AwesomeDog/maxlaunchpad",
+    "ref": "HEAD snapshot",
+    "license": "MIT",
+    "archive_sha256": "04CEC36C1667A53D6FBAFD7AFE045F9CC85E3727DBCCF6636FFE6A53307761E5",
+    "usage": "Comparison source only; not compiled or linked",
+    "source_folder": "vendor/MaxLaunchpad",
+    "name": "MaxLaunchpad",
+    "files": 147,
+    "downloaded": "2026-10-03",
+    "repo": "AwesomeDog/maxlaunchpad"
+  },
+  {
+    "url": "https://github.com/fanchenio/DawnLauncher",
+    "ref": "HEAD snapshot",
+    "license": "MIT",
+    "archive_sha256": "6BC4E1AC33F3FD259EAD4BE245B813FD2F2936029B6DE41BFB93322BE8361CDE",
+    "usage": "Comparison source only; not compiled or linked",
+    "source_folder": "vendor/DawnLauncher",
+    "name": "DawnLauncher",
+    "files": 127,
+    "downloaded": "2026-10-03",
+    "repo": "fanchenio/DawnLauncher"
+  },
+  {
+    "url": "https://github.com/BookerLiu/GeekDesk",
+    "ref": "HEAD snapshot",
+    "license": "Apache-2.0",
+    "archive_sha256": "966143242ABAD4C0B3051A8D1189EDE5E0CB051DE12A283A57A53EB74FA8036A",
+    "usage": "Comparison source only; not compiled or linked",
+    "source_folder": "vendor/GeekDesk",
+    "name": "GeekDesk",
+    "files": 218,
+    "downloaded": "2026-10-03",
+    "repo": "BookerLiu/GeekDesk"
+  },
+  {
+    "url": "https://github.com/qyn1126/Kyvoq",
+    "ref": "HEAD snapshot",
+    "license": "Apache-2.0",
+    "archive_sha256": "ADD90227825C1911453AA52FA07FE3138CE0C54A74ACE12EF3FEF0CC74D82853",
+    "usage": "Comparison source only; not compiled or linked",
+    "source_folder": "vendor/Kyvoq",
+    "name": "Kyvoq",
+    "files": 130,
+    "downloaded": "2026-10-03",
+    "repo": "qyn1126/Kyvoq"
+  },
+  {
+    "url": "https://github.com/LEISHIQIANG/QuickLauncher",
+    "ref": "HEAD snapshot",
+    "license": "MIT",
+    "archive_sha256": "269ABBFDB580C45D551A17CFC8871298F0E673EBB5FD946A423839DFF031DC48",
+    "usage": "Comparison source only; not compiled or linked",
+    "source_folder": "vendor/QuickLauncher",
+    "name": "QuickLauncher",
+    "files": 830,
+    "downloaded": "2026-10-03",
+    "repo": "LEISHIQIANG/QuickLauncher"
+  },
+  {
+    "url": "https://github.com/kof2000git/desktop_box",
+    "commit": "fa043edaf1511de5f146aff3ce9886c1d884af6b",
+    "license": "MIT",
+    "usage": "Comparison source only; not compiled or linked",
+    "source_folder": "vendor/desktop_box",
+    "name": "desktop_box",
+    "files": 111,
+    "downloaded": "2026-10-03",
+    "repo": "kof2000git/desktop_box"
+  },
+  {
+    "url": "https://github.com/Tianyu199509/DeskBox",
+    "ref": "HEAD snapshot",
+    "license": "GPL-3.0",
+    "archive_sha256": "2E6AC0F63B12BC8F24D8D662F234C63BB4F9AAE8B71AE6EB483C75FBC6558D95",
+    "usage": "Comparison source only; not compiled or linked",
+    "source_folder": "vendor/DeskBox",
+    "name": "DeskBox",
+    "files": 1679,
+    "downloaded": "2026-10-03",
+    "repo": "Tianyu199509/DeskBox"
+  },
+  {
+    "url": "https://github.com/sqmw/desk_tidy",
+    "ref": "HEAD snapshot",
+    "license": "MIT",
+    "archive_sha256": "7A40FD4C10822B4FAF7DBE51C331219F0E3DEE663EF40655527C46950C3DCBB7",
+    "usage": "Comparison source only; not compiled or linked",
+    "source_folder": "vendor/desk_tidy",
+    "name": "desk_tidy",
+    "files": 217,
+    "downloaded": "2026-10-03",
+    "repo": "sqmw/desk_tidy"
+  },
+  {
+    "url": "https://github.com/venkatsalem/DesktopFences",
+    "ref": "HEAD snapshot",
+    "license": "No license file present in downloaded snapshot",
+    "archive_sha256": "07811EEC475C32CBDBCE55689151E9F068B06254AF09479E59744937B46969F1",
+    "usage": "Comparison source only; not compiled or linked",
+    "source_folder": "vendor/DesktopFences",
+    "name": "DesktopFences",
+    "files": 17,
+    "downloaded": "2026-10-03",
+    "repo": "venkatsalem/DesktopFences"
+  }
+]

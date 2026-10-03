@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./image-slot.js"></script>
+<style>
+body{margin:0;background:#151619;font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:oklch(0.75 0.12 250)}a:hover{color:oklch(0.85 0.1 250)}
+[data-theme=light]{--panel:rgba(243,243,243,.80);--zone:rgba(255,255,255,.46);--zonehdr:rgba(255,255,255,.40);--fg:#1b1b1b;--fg2:#5d5d5d;--stroke:rgba(0,0,0,.09);--card:rgba(255,255,255,.72);--hover:rgba(0,0,0,.05);--taskbar:rgba(238,238,238,.84);--input:rgba(255,255,255,.9);--accent:oklch(0.52 0.15 250);--accentfg:#fff}
+[data-theme=dark]{--panel:rgba(34,34,36,.80);--zone:rgba(24,24,26,.46);--zonehdr:rgba(0,0,0,.18);--fg:#f3f3f3;--fg2:#b8b8bc;--stroke:rgba(255,255,255,.10);--card:rgba(255,255,255,.06);--hover:rgba(255,255,255,.07);--taskbar:rgba(30,30,32,.86);--input:rgba(255,255,255,.07);--accent:oklch(0.76 0.12 250);--accentfg:#111}
+input::placeholder{color:var(--fg2)}
+</style>
+</helmet>
+<div data-theme="{{ themeEff }}" style="min-height:100vh;padding:32px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:24px;color:#eee">
+  <div style="width:1440px;display:flex;align-items:center;gap:14px">
+    <div style="font-size:36px;width:1em;height:1em;border-radius:.24em;background:oklch(0.56 0.16 250);position:relative;flex:none">
+      <div style="position:absolute;right:.16em;top:.16em;bottom:.16em;width:.2em;border-radius:.06em;background:#fff"></div>
+      <div style="position:absolute;left:.16em;top:.2em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+      <div style="position:absolute;left:.16em;top:.44em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+      <div style="position:absolute;left:.16em;top:.68em;width:.26em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="font-size:20px;font-weight:600;letter-spacing:-.01em">Margin · 边距</div>
+      <div style="font-size:13px;color:#a8a8ad">{{ t.tagline }}</div>
+    </div>
+  </div>
+
+  <div ref="{{ deskRef }}" style="position:relative;width:1440px;height:900px;border-radius:10px;overflow:hidden;background:linear-gradient(165deg,oklch(0.62 0.07 235),oklch(0.42 0.06 255) 60%,oklch(0.3 0.04 265));box-shadow:0 20px 60px rgba(0,0,0,.5);user-select:none;color:var(--fg)">
+    <div style="position:absolute;inset:0">
+      <image-slot id="wallpaper" shape="rect" placeholder="Drop your wallpaper here"></image-slot>
+    </div>
+
+    <sc-for list="{{ zones }}" as="z" hint-placeholder-count="4">
+      <div onDragOver="{{ z.onDragOver }}" onDrop="{{ z.onDrop }}" style="position:absolute;left:{{ z.x }}px;top:{{ z.y }}px;width:{{ z.w }}px;height:{{ z.hCss }};opacity:{{ z.op }};pointer-events:{{ z.pe }};transition:opacity .25s;background:var(--zone);backdrop-filter:blur(22px) saturate(1.5);border:1px solid var(--stroke);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden">
+        <div onMouseDown="{{ z.onHeaderDown }}" style="height:32px;flex:none;display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;background:var(--zonehdr);cursor:move">
+          <div style="width:8px;height:8px;border-radius:2px;background:{{ z.color }};flex:none"></div>
+          <sc-if value="{{ z.editing }}" hint-placeholder-val="{{ false }}">
+            <input autoFocus="{{ true }}" defaultValue="{{ z.name }}" onKeyDown="{{ z.onRenameKey }}" onBlur="{{ z.onRenameBlur }}" style="flex:1;min-width:0;font:inherit;font-size:12px;font-weight:600;color:var(--fg);background:var(--input);border:1px solid var(--accent);border-radius:4px;padding:3px 6px;outline:none"></input>
+          </sc-if>
+          <sc-if value="{{ z.notEditing }}" hint-placeholder-val="{{ true }}">
+            <div onDoubleClick="{{ z.onStartRename }}" style="flex:1;min-width:0;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ z.name }}</div>
+          </sc-if>
+          <div style="font-size:11px;color:var(--fg2)">{{ z.count }}</div>
+          <button onClick="{{ z.onToggle }}" title="Collapse" style="width:24px;height:24px;border:0;border-radius:4px;background:transparent;color:var(--fg2);font-size:11px;cursor:pointer" style-hover="background:var(--hover)">{{ z.chev }}</button>
+        </div>
+        <sc-if value="{{ z.open }}" hint-placeholder-val="{{ true }}">
+          <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;padding:4px 6px;display:grid;grid-template-columns:repeat(auto-fill,72px);grid-auto-rows:min-content;gap:2px">
+            <sc-for list="{{ z.items }}" as="it" hint-placeholder-count="3">
+              <div draggable="true" onDragStart="{{ it.onDragStart }}" onClick="{{ it.onClick }}" title="{{ it.name }}" style="width:72px;padding:6px 2px;box-sizing:border-box;border-radius:6px;display:flex;flex-direction:column;align-items:center;gap:5px;opacity:{{ it.op }};box-shadow:{{ it.ring }};cursor:default;transition:opacity .2s" style-hover="background:var(--hover)">
+                <div style="position:relative;width:34px;height:34px;border-radius:6px;background:{{ it.bg }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;letter-spacing:.03em">
+                  <sc-if value="{{ it.isFolder }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;left:0;top:-3px;width:14px;height:6px;border-radius:3px 3px 0 0;background:oklch(0.7 0.13 80)"></div>
+                  </sc-if>
+                  {{ it.label }}
+                  <sc-if value="{{ it.stale }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;right:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:oklch(0.72 0.16 60);border:2px solid var(--panel)"></div>
+                  </sc-if>
+                </div>
+                <div style="font-size:11px;line-height:1.25;text-align:center;word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ it.name }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+
+    <sc-if value="{{ drawMode }}" hint-placeholder-val="{{ false }}">
+      <div onMouseDown="{{ drawDown }}" onMouseMove="{{ drawMove }}" onMouseUp="{{ drawUp }}" style="position:absolute;inset:0 0 48px 0;cursor:crosshair;background:rgba(0,0,0,.12);z-index:5">
+        <div style="position:absolute;top:16px;left:50%;transform:translateX(-50%);padding:8px 14px;border-radius:8px;background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--stroke);font-size:13px;color:var(--fg);pointer-events:none">{{ t.drawHint }}</div>
+        <sc-if value="{{ hasDraft }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;left:{{ draft.x }}px;top:{{ draft.y }}px;width:{{ draft.w }}px;height:{{ draft.h }}px;border:1.5px dashed var(--accent);border-radius:8px;background:rgba(255,255,255,.12);pointer-events:none"></div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ panelClosed }}" hint-placeholder-val="{{ false }}">
+      <div onMouseEnter="{{ hoverOpen }}" onClick="{{ hoverOpen }}" style="position:absolute;right:0;top:0;bottom:48px;width:10px;z-index:6;display:flex;align-items:center;justify-content:flex-end;cursor:pointer">
+        <div style="width:4px;height:72px;border-radius:2px 0 0 2px;background:rgba(255,255,255,.55)"></div>
+      </div>
+    </sc-if>
+
+    <div onMouseLeave="{{ panelLeave }}" style="position:absolute;top:10px;right:10px;bottom:58px;width:340px;z-index:7;transform:translateX({{ panelX }}px);transition:transform .28s cubic-bezier(.2,.8,.2,1);background:var(--panel);backdrop-filter:blur(40px) saturate(1.6);border:1px solid var(--stroke);border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.28);display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 10px 8px 14px">
+        <div style="font-size:18px;width:1em;height:1em;border-radius:.24em;background:oklch(0.56 0.16 250);position:relative;flex:none">
+          <div style="position:absolute;right:.16em;top:.16em;bottom:.16em;width:.2em;border-radius:.06em;background:#fff"></div>
+          <div style="position:absolute;left:.16em;top:.2em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+          <div style="position:absolute;left:.16em;top:.44em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+          <div style="position:absolute;left:.16em;top:.68em;width:.26em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+        </div>
+        <div style="flex:1;font-size:13px;font-weight:600">Margin</div>
+        <button onClick="{{ togglePin }}" title="{{ t.pin }}" style="height:28px;padding:0 8px;border:0;border-radius:4px;background:{{ pinBg }};color:var(--fg);font:inherit;font-size:12px;cursor:pointer" style-hover="background:var(--hover)">{{ pinLabel }}</button>
+        <button onClick="{{ closePanel }}" title="Close" style="width:28px;height:28px;border:0;border-radius:4px;background:transparent;color:var(--fg2);font-size:14px;cursor:pointer" style-hover="background:var(--hover)">✕</button>
+      </div>
+
+      <div style="padding:0 12px 10px">
+        <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:6px;background:var(--input);border:1px solid var(--stroke);border-bottom:2px solid var(--accent)">
+          <div style="width:10px;height:10px;border:1.5px solid var(--fg2);border-radius:50%;flex:none"></div>
+          <input ref="{{ searchRef }}" value="{{ query }}" onChange="{{ onQuery }}" placeholder="{{ t.search }}" style="flex:1;min-width:0;border:0;background:transparent;outline:none;font:inherit;font-size:13px;color:var(--fg)"></input>
+          <div style="font-size:10px;color:var(--fg2);border:1px solid var(--stroke);border-radius:3px;padding:1px 5px;white-space:nowrap">Ctrl Space</div>
+        </div>
+      </div>
+
+      <div style="flex:1;min-height:0;overflow:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:16px">
+        <sc-if value="{{ searching }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <div style="font-size:12px;font-weight:600;color:var(--fg2);padding:0 4px 6px">{{ resultsLabel }}</div>
+            <sc-for list="{{ results }}" as="r" hint-placeholder-count="3">
+              <div onClick="{{ r.onClick }}" style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:6px;cursor:pointer" style-hover="background:var(--hover)">
+                <div style="width:26px;height:26px;border-radius:5px;background:{{ r.bg }};color:#fff;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">{{ r.label }}</div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+                  <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+                  <div style="font-size:11px;color:var(--fg2)">{{ r.where }}</div>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:13px;color:var(--fg2);padding:8px 4px">{{ t.noResults }}</div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ notSearching }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <sc-if value="{{ showReview }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:12px;border-radius:8px;background:var(--card);border:1px solid var(--stroke);display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:8px;height:8px;border-radius:50%;background:oklch(0.72 0.16 60)"></div>
+                  <div style="font-size:13px;font-weight:600">{{ t.reviewTitle }}</div>
+                </div>
+                <div style="font-size:12px;color:var(--fg2);text-wrap:pretty">{{ reviewBody }}</div>
+                <sc-if value="{{ reviewOpen }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <sc-for list="{{ staleList }}" as="s" hint-placeholder-count="3">
+                      <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+                        <div style="flex:1;min-width:0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</div>
+                        <div style="font-size:11px;color:var(--fg2)">{{ s.ageLabel }}</div>
+                        <button onClick="{{ s.onKeep }}" style="height:24px;padding:0 8px;border:1px solid var(--stroke);border-radius:4px;background:transparent;color:var(--fg);font:inherit;font-size:11px;cursor:pointer" style-hover="background:var(--hover)">{{ t.keep }}</button>
+                        <button onClick="{{ s.onArchive }}" style="height:24px;padding:0 8px;border:1px solid var(--stroke);border-radius:4px;background:transparent;color:var(--fg);font:inherit;font-size:11px;cursor:pointer" style-hover="background:var(--hover)">{{ t.archive }}</button>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <div style="display:flex;gap:6px">
+                  <button onClick="{{ archiveAll }}" style="height:28px;padding:0 12px;border:0;border-radius:4px;background:var(--accent);color:var(--accentfg);font:inherit;font-size:12px;font-weight:600;cursor:pointer">{{ t.archiveAll }}</button>
+                  <button onClick="{{ toggleReview }}" style="height:28px;padding:0 12px;border:1px solid var(--stroke);border-radius:4px;background:var(--card);color:var(--fg);font:inherit;font-size:12px;cursor:pointer" style-hover="background:var(--hover)">{{ reviewBtn }}</button>
+                  <button onClick="{{ later }}" style="height:28px;padding:0 10px;border:0;border-radius:4px;background:transparent;color:var(--fg2);font:inherit;font-size:12px;cursor:pointer" style-hover="background:var(--hover)">{{ t.later }}</button>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ hasArchived }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ restore }}" style="align-self:flex-start;border:0;background:transparent;color:var(--fg2);font:inherit;font-size:12px;padding:0 4px;cursor:pointer;text-decoration:underline">{{ archivedLabel }}</button>
+            </sc-if>
+
+            <button onClick="{{ openLauncher }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border:1px solid var(--stroke);border-radius:6px;background:var(--card);color:var(--fg);font:inherit;font-size:13px;cursor:pointer;text-align:left" style-hover="background:var(--hover)">
+              <div style="width:14px;height:14px;display:grid;grid-template-columns:1fr 1fr;gap:2px;flex:none">
+                <div style="border-radius:2px;background:var(--accent)"></div><div style="border-radius:2px;background:var(--accent);opacity:.6"></div><div style="border-radius:2px;background:var(--accent);opacity:.6"></div><div style="border-radius:2px;background:var(--accent)"></div>
+              </div>
+              <div style="flex:1">{{ t.openL }}</div>
+              <div style="font-size:10px;color:var(--fg2);border:1px solid var(--stroke);border-radius:3px;padding:1px 5px">Ctrl Num0</div>
+            </button>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:12px;font-weight:600;color:var(--fg2);padding:0 4px">{{ t.apps }}</div>
+              <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">
+                <sc-for list="{{ apps }}" as="a" hint-placeholder-count="6">
+                  <div title="{{ a.name }}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0;border-radius:6px;cursor:pointer" style-hover="background:var(--hover)">
+                    <div style="width:32px;height:32px;border-radius:7px;background:var(--card);border:1px solid var(--stroke);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:{{ a.color }}">{{ a.letter }}</div>
+                    <div style="font-size:10px;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48px">{{ a.name }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="display:flex;align-items:center;gap:6px;padding:0 0 2px 4px">
+                <div style="flex:1;font-size:12px;font-weight:600;color:var(--fg2)">{{ t.zones }}</div>
+                <button onClick="{{ togglePeek }}" style="height:26px;padding:0 8px;border:0;border-radius:4px;background:{{ peekBg }};color:var(--fg);font:inherit;font-size:12px;cursor:pointer" style-hover="background:var(--hover)">{{ t.peek }}</button>
+                <button onClick="{{ startDraw }}" style="height:26px;padding:0 10px;border:0;border-radius:4px;background:var(--accent);color:var(--accentfg);font:inherit;font-size:12px;font-weight:600;cursor:pointer">+ {{ t.draw }}</button>
+              </div>
+              <sc-for list="{{ zones }}" as="z" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:6px" style-hover="background:var(--hover)">
+                  <div style="width:10px;height:10px;border-radius:3px;background:{{ z.color }};flex:none"></div>
+                  <div style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ z.name }}</div>
+                  <div style="font-size:12px;color:var(--fg2)">{{ z.count }}</div>
+                  <button onClick="{{ z.onToggle }}" style="width:24px;height:24px;border:0;border-radius:4px;background:transparent;color:var(--fg2);font-size:11px;cursor:pointer" style-hover="background:var(--hover)">{{ z.chev }}</button>
+                  <button onClick="{{ z.onDelete }}" title="Remove zone" style="width:24px;height:24px;border:0;border-radius:4px;background:transparent;color:var(--fg2);font-size:11px;cursor:pointer" style-hover="background:var(--hover)">✕</button>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="font-size:12px;font-weight:600;color:var(--fg2);padding:0 4px 4px">{{ todoHeader }}</div>
+              <sc-for list="{{ todos }}" as="td" hint-placeholder-count="4">
+                <div style="display:flex;align-items:flex-start;gap:10px;padding:7px 6px;border-radius:6px" style-hover="background:var(--hover)">
+                  <button onClick="{{ td.onToggle }}" style="width:18px;height:18px;margin-top:1px;flex:none;border-radius:4px;border:1.5px solid {{ td.cbBorder }};background:{{ td.cbBg }};color:var(--accentfg);font-size:11px;line-height:1;padding:0;cursor:pointer">{{ td.mark }}</button>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+                    <div style="font-size:13px;text-decoration:{{ td.deco }};color:{{ td.color }};text-wrap:pretty">{{ td.text }}</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                      <sc-if value="{{ td.due }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:11px;color:var(--fg2);padding:1px 6px;border-radius:3px;background:var(--hover)">{{ td.due }}</div>
+                      </sc-if>
+                      <sc-if value="{{ td.link }}" hint-placeholder-val="{{ false }}">
+                        <div onClick="{{ td.onLink }}" style="font-size:11px;color:var(--accent);padding:1px 6px;border-radius:3px;background:var(--hover);cursor:pointer">↗ {{ td.link }}</div>
+                      </sc-if>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+              <input value="{{ newTodo }}" onChange="{{ onNewTodo }}" onKeyDown="{{ onNewTodoKey }}" placeholder="{{ t.addTodo }}" style="margin-top:4px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--stroke);background:var(--input);outline:none;font:inherit;font-size:13px;color:var(--fg)"></input>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--stroke)">
+        <div style="display:flex;padding:2px;border-radius:5px;background:var(--hover);gap:2px">
+          <sc-for list="{{ langOpts }}" as="o" hint-placeholder-count="2">
+            <button onClick="{{ o.onClick }}" style="height:24px;padding:0 10px;border:0;border-radius:4px;background:{{ o.bg }};color:var(--fg);font:inherit;font-size:12px;cursor:pointer">{{ o.label }}</button>
+          </sc-for>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;padding:2px;border-radius:5px;background:var(--hover);gap:2px">
+          <sc-for list="{{ themeOpts }}" as="o" hint-placeholder-count="3">
+            <button onClick="{{ o.onClick }}" style="height:24px;padding:0 8px;border:0;border-radius:4px;background:{{ o.bg }};color:var(--fg);font:inherit;font-size:12px;cursor:pointer">{{ o.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{ lOpen }}" hint-placeholder-val="{{ false }}">
+      <div onMouseDown="{{ lClose }}" style="position:absolute;inset:0;z-index:9"></div>
+      <div style="position:absolute;left:{{ lx }}px;top:{{ ly }}px;width:568px;height:388px;z-index:10;background:var(--panel);backdrop-filter:blur(40px) saturate(1.6);border:1px solid var(--stroke);border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,.38);display:flex;overflow:hidden;color:var(--fg)">
+        <div style="width:140px;flex:none;padding:8px 6px;display:flex;flex-direction:column;gap:2px;background:var(--zonehdr);border-right:1px solid var(--stroke);overflow:auto">
+          <div style="display:flex;align-items:center;gap:8px;padding:4px 8px 10px">
+            <div style="width:14px;height:14px;display:grid;grid-template-columns:1fr 1fr;gap:2px;flex:none">
+              <div style="border-radius:2px;background:var(--accent)"></div><div style="border-radius:2px;background:var(--accent);opacity:.6"></div><div style="border-radius:2px;background:var(--accent);opacity:.6"></div><div style="border-radius:2px;background:var(--accent)"></div>
+            </div>
+            <div style="font-size:12px;font-weight:600">{{ t.launcher }}</div>
+          </div>
+          <sc-for list="{{ lTabs }}" as="tb" hint-placeholder-count="4">
+            <div onClick="{{ tb.onClick }}" onDoubleClick="{{ tb.onRename }}" onDragOver="{{ tb.onDragOver }}" onDrop="{{ tb.onDrop }}" style="position:relative;display:flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 12px;border-radius:5px;background:{{ tb.bg }};outline:{{ tb.outline }};cursor:pointer" style-hover="background:var(--hover)">
+              <div style="position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:2px;background:{{ tb.bar }}"></div>
+              <sc-if value="{{ tb.editing }}" hint-placeholder-val="{{ false }}">
+                <input autoFocus="{{ true }}" defaultValue="{{ tb.name }}" onKeyDown="{{ tb.onRenameKey }}" onBlur="{{ tb.onRenameBlur }}" style="flex:1;min-width:0;font:inherit;font-size:12px;color:var(--fg);background:var(--input);border:1px solid var(--accent);border-radius:4px;padding:2px 4px;outline:none"></input>
+              </sc-if>
+              <sc-if value="{{ tb.notEditing }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;min-width:0;font-size:12px;font-weight:{{ tb.weight }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tb.name }}</div>
+              </sc-if>
+              <div style="font-size:11px;color:var(--fg2)">{{ tb.count }}</div>
+            </div>
+          </sc-for>
+          <button onClick="{{ lAddTab }}" style="height:30px;margin-top:4px;padding:0 12px;border:1px dashed var(--stroke);border-radius:5px;background:transparent;color:var(--fg2);font:inherit;font-size:12px;text-align:left;cursor:pointer" style-hover="background:var(--hover)">+ {{ t.newTab }}</button>
+        </div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+          <div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px 8px">
+            <div style="display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;background:var(--input);border:1px solid var(--stroke);border-bottom:2px solid var(--accent)">
+              <div style="width:10px;height:10px;border:1.5px solid var(--fg2);border-radius:50%;flex:none"></div>
+              <input ref="{{ lSearchRef }}" value="{{ lq }}" onChange="{{ onLq }}" onKeyDown="{{ onLqKey }}" placeholder="{{ t.lSearch }}" style="flex:1;min-width:0;border:0;background:transparent;outline:none;font:inherit;font-size:13px;color:var(--fg)"></input>
+              <div style="font-size:10px;color:var(--fg2);border:1px solid var(--stroke);border-radius:3px;padding:1px 5px;white-space:nowrap">Ctrl Num0</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+              <div style="font-size:11px;color:var(--fg2);padding-right:4px">{{ t.sortBy }}</div>
+              <sc-for list="{{ lSorts }}" as="so" hint-placeholder-count="5">
+                <button onClick="{{ so.onClick }}" style="flex:none;white-space:nowrap;height:24px;padding:0 7px;border:1px solid {{ so.border }};border-radius:12px;background:{{ so.bg }};color:{{ so.fg }};font:inherit;font-size:11px;cursor:pointer">{{ so.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div onDragOver="{{ lGridOver }}" onDrop="{{ lGridDrop }}" style="flex:1;min-height:0;overflow:auto;padding:4px 10px 10px;display:grid;grid-template-columns:repeat(auto-fill,78px);grid-auto-rows:min-content;gap:2px;align-content:start">
+            <sc-for list="{{ lItems }}" as="li" hint-placeholder-count="8">
+              <div draggable="true" onDragStart="{{ li.onDragStart }}" onDragOver="{{ li.onDragOver }}" onDrop="{{ li.onDrop }}" onClick="{{ li.onClick }}" title="{{ li.name }}" style="width:78px;padding:8px 2px 6px;box-sizing:border-box;border-radius:6px;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:{{ li.ring }};cursor:pointer" style-hover="background:var(--hover)">
+                <div style="width:36px;height:36px;border-radius:8px;background:{{ li.bg }};border:1px solid {{ li.border }};color:{{ li.fg }};display:flex;align-items:center;justify-content:center;font-size:{{ li.fs }}px;font-weight:700;letter-spacing:.02em;box-sizing:border-box">{{ li.label }}</div>
+                <div style="font-size:11px;line-height:1.25;text-align:center;word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ li.name }}</div>
+                <sc-if value="{{ li.meta }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:10px;color:var(--fg2)">{{ li.meta }}</div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <sc-if value="{{ lEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="grid-column:1/-1;padding:40px 16px;border:1px dashed var(--stroke);border-radius:8px;text-align:center;font-size:12px;color:var(--fg2);text-wrap:pretty">{{ lEmptyText }}</div>
+            </sc-if>
+          </div>
+          <div style="padding:7px 12px;border-top:1px solid var(--stroke);font-size:11px;color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.lHint }}</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:11;padding:8px 16px;border-radius:6px;background:var(--panel);backdrop-filter:blur(30px);border:1px solid var(--stroke);box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;color:var(--fg)">{{ toast }}</div>
+    </sc-if>
+
+    <div style="position:absolute;left:0;right:0;bottom:0;height:48px;z-index:8;background:var(--taskbar);backdrop-filter:blur(40px) saturate(1.6);border-top:1px solid var(--stroke);display:flex;align-items:center;justify-content:center">
+      <div style="display:flex;gap:4px;align-items:center">
+        <div style="width:40px;height:40px;border-radius:5px;display:flex;align-items:center;justify-content:center" style-hover="background:var(--hover)"><div style="width:18px;height:18px;border-radius:5px;background:var(--accent)"></div></div>
+        <div style="width:40px;height:40px;border-radius:5px;display:flex;align-items:center;justify-content:center" style-hover="background:var(--hover)"><div style="width:14px;height:14px;border:2px solid var(--fg2);border-radius:50%"></div></div>
+        <sc-for list="{{ apps }}" as="a" hint-placeholder-count="6">
+          <div title="{{ a.name }}" style="width:40px;height:40px;border-radius:5px;display:flex;align-items:center;justify-content:center" style-hover="background:var(--hover)">
+            <div style="width:24px;height:24px;border-radius:6px;background:var(--card);border:1px solid var(--stroke);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:{{ a.color }}">{{ a.letter }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="position:absolute;right:10px;top:0;bottom:0;display:flex;align-items:center;gap:6px">
+        <div onClick="{{ openLauncher }}" title="Launcher (Ctrl+Num0)" style="width:32px;height:36px;border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--hover)">
+          <div style="width:14px;height:14px;display:grid;grid-template-columns:1fr 1fr;gap:2px">
+            <div style="border-radius:2px;background:var(--fg)"></div><div style="border-radius:2px;background:var(--fg);opacity:.55"></div><div style="border-radius:2px;background:var(--fg);opacity:.55"></div><div style="border-radius:2px;background:var(--fg)"></div>
+          </div>
+        </div>
+        <div onClick="{{ togglePanel }}" title="Margin" style="width:32px;height:36px;border-radius:5px;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:var(--hover)">
+          <div style="font-size:16px;width:1em;height:1em;border-radius:.24em;background:oklch(0.56 0.16 250);position:relative">
+            <div style="position:absolute;right:.16em;top:.16em;bottom:.16em;width:.2em;border-radius:.06em;background:#fff"></div>
+            <div style="position:absolute;left:.16em;top:.2em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+            <div style="position:absolute;left:.16em;top:.44em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+            <div style="position:absolute;left:.16em;top:.68em;width:.26em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;font-size:11px;line-height:1.35;padding:0 8px">
+          <div>14:32</div>
+          <div>2026/9/30</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="width:1440px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="padding:32px;border-radius:10px;background:#f3f3f3;display:flex;align-items:flex-end;gap:32px">
+      <div style="font-size:96px;width:1em;height:1em;border-radius:.24em;background:oklch(0.56 0.16 250);position:relative;flex:none">
+        <div style="position:absolute;right:.16em;top:.16em;bottom:.16em;width:.2em;border-radius:.06em;background:#fff"></div>
+        <div style="position:absolute;left:.16em;top:.2em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+        <div style="position:absolute;left:.16em;top:.44em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+        <div style="position:absolute;left:.16em;top:.68em;width:.26em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+      </div>
+      <div style="font-size:48px;width:1em;height:1em;border-radius:.24em;background:oklch(0.56 0.16 250);position:relative;flex:none">
+        <div style="position:absolute;right:.16em;top:.16em;bottom:.16em;width:.2em;border-radius:.06em;background:#fff"></div>
+        <div style="position:absolute;left:.16em;top:.2em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+        <div style="position:absolute;left:.16em;top:.44em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+        <div style="position:absolute;left:.16em;top:.68em;width:.26em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+      </div>
+      <div style="font-size:24px;width:1em;height:1em;border-radius:.24em;background:oklch(0.56 0.16 250);position:relative;flex:none">
+        <div style="position:absolute;right:.16em;top:.16em;bottom:.16em;width:.2em;border-radius:.06em;background:#fff"></div>
+        <div style="position:absolute;left:.16em;top:.2em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+        <div style="position:absolute;left:.16em;top:.44em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+        <div style="position:absolute;left:.16em;top:.68em;width:.26em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+      </div>
+      <div style="font-size:16px;width:1em;height:1em;border-radius:.24em;background:oklch(0.56 0.16 250);position:relative;flex:none">
+        <div style="position:absolute;right:.16em;top:.16em;bottom:.16em;width:.2em;border-radius:.06em;background:#fff"></div>
+        <div style="position:absolute;left:.16em;top:.2em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+        <div style="position:absolute;left:.16em;top:.44em;width:.4em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+        <div style="position:absolute;left:.16em;top:.68em;width:.26em;height:.12em;border-radius:.04em;background:rgba(255,255,255,.7)"></div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px;color:#1b1b1b">
+        <div style="font-size:15px;font-weight:600">App logo · 96 / 48 / 24 / 16</div>
+        <div style="font-size:13px;color:#5d5d5d;text-wrap:pretty">{{ t.logoNote }}</div>
+      </div>
+    </div>
+    <div style="padding:32px;border-radius:10px;background:#202022;display:flex;flex-direction:column;gap:10px;color:#f3f3f3">
+      <div style="font-size:15px;font-weight:600">{{ t.howTitle }}</div>
+      <sc-for list="{{ t.how }}" as="h" hint-placeholder-count="5">
+        <div style="font-size:13px;color:#b8b8bc;line-height:1.5">{{ h }}</div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;lang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;en&quot;,&quot;zh&quot;],&quot;default&quot;:&quot;en&quot;,&quot;tsType&quot;:&quot;'en'|'zh'&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;auto&quot;,&quot;tsType&quot;:&quot;'auto'|'light'|'dark'&quot;},&quot;staleDays&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;min&quot;:1,&quot;max&quot;:60,&quot;default&quot;:7,&quot;tsType&quot;:&quot;number&quot;,&quot;unit&quot;:&quot;days&quot;}}">
+const I18N = {
+  en: {
+    tagline: 'A slim edge panel + zones you draw yourself. Your wallpaper stays visible.',
+    launcher: 'Launcher', openL: 'Open launcher', lSearch: 'Type to filter all tabs', newTab: 'New tab', sortBy: 'Sort',
+    sorts: { manual: 'Custom', name: 'Name', used: 'Most used', recent: 'Recent', type: 'Type' },
+    lEmpty: 'Empty tab. Drag icons here from desktop zones.', lNoMatch: 'No match',
+    lHint: 'Tab / Shift+Tab switch tabs · Enter opens first · drag to reorder or onto a tab · Esc close',
+    opening: n => `Opening ${n}…`, now: 'just now', hAgo: h => `${h}h ago`, dAgo: d => `${d}d ago`,
+    search: 'Search desktop', apps: 'Apps', zones: 'Zones', draw: 'Draw zone', todo: 'To-do', addTodo: 'Add a task, press Enter',
+    peek: 'Peek wallpaper', reviewTitle: 'Weekly tidy-up', archiveAll: 'Archive all', review: 'Review', hide: 'Hide list', later: 'Later',
+    keep: 'Keep', archive: 'Archive', drawHint: 'Drag anywhere to draw a zone · Esc to cancel', newZone: 'New zone',
+    results: 'Results', noResults: 'Nothing found', pin: 'Keep panel open', pinned: 'Pinned', unpinned: 'Auto-hide',
+    auto: 'Auto', light: 'Light', dark: 'Dark', days: 'd',
+    reviewBody: (n, d) => `${n} temp files untouched for ${d}+ days. Archive moves them to a dated folder — nothing is deleted.`,
+    archived: n => `${n} archived this week · Restore`,
+    logoNote: 'A tile with a slim bar on its edge — the panel beside your desktop items. Reads at 16px in the system tray.',
+    howTitle: 'How it works',
+    how: ['• Hover the right screen edge (or Ctrl+Space) to slide the panel in. Pin keeps it open.',
+      '• “Draw zone” → drag a rectangle on the desktop. Double-click a zone name to rename, drag its header to move.',
+      '• Drag icons between zones. Collapse a zone to just its title bar, or “Peek wallpaper” to hide them all.',
+      '• Search covers every zone; clicking a result highlights the file on the desktop.',
+      '• Once a week, stale temp files are listed for Keep / Archive — never auto-deleted.',
+      '• Ctrl+Num0 pops the Launcher at your cursor: your own tabs, per-tab sorting (custom / name / most used / recent / type), drag to reorder.']
+  },
+  zh: {
+    tagline: '贴边细面板 + 自己绘制的桌面区域。壁纸始终可见。',
+    launcher: '启动器', openL: '打开启动器', lSearch: '输入以筛选所有标签页', newTab: '新标签页', sortBy: '排序',
+    sorts: { manual: '自定义', name: '名称', used: '最常用', recent: '最近', type: '类型' },
+    lEmpty: '空标签页。从桌面区域拖入图标。', lNoMatch: '无匹配',
+    lHint: 'Tab / Shift+Tab 切换标签 · 回车打开首项 · 拖动排序或拖到标签 · Esc 关闭',
+    opening: n => `正在打开 ${n}…`, now: '刚刚', hAgo: h => `${h} 小时前`, dAgo: d => `${d} 天前`,
+    search: '搜索桌面', apps: '应用', zones: '区域', draw: '绘制区域', todo: '待办', addTodo: '添加任务，回车确认',
+    peek: '查看壁纸', reviewTitle: '每周整理', archiveAll: '全部归档', review: '逐个查看', hide: '收起列表', later: '稍后',
+    keep: '保留', archive: '归档', drawHint: '在桌面任意拖动以绘制区域 · Esc 取消', newZone: '新区域',
+    results: '结果', noResults: '未找到', pin: '保持面板打开', pinned: '已固定', unpinned: '自动隐藏',
+    auto: '自动', light: '浅色', dark: '深色', days: '天',
+    reviewBody: (n, d) => `${n} 个临时文件已超过 ${d} 天未使用。归档会移入按日期命名的文件夹，不会删除。`,
+    archived: n => `本周已归档 ${n} 项 · 恢复`,
+    logoNote: '方块边缘一条细栏——就是桌面旁的面板。16px 托盘尺寸下依然清晰。',
+    howTitle: '使用方式',
+    how: ['• 鼠标移到屏幕右边缘（或 Ctrl+Space）滑出面板，固定后常驻。',
+      '• 点“绘制区域”，在桌面拖出矩形。双击区域名重命名，拖动标题栏移动。',
+      '• 图标可在区域间拖放。区域可折叠为标题栏，或用“查看壁纸”一键隐藏全部。',
+      '• 搜索覆盖所有区域，点击结果会在桌面上高亮该文件。',
+      '• 每周列出久未使用的临时文件，由你选择保留或归档，绝不自动删除。',
+      '• Ctrl+小键盘0 在光标处弹出启动器：自定义标签页，每页可选排序（自定义/名称/最常用/最近/类型），拖动调整顺序。']
+  }
+};
+const TYPES = { folder: [85, ''], pdf: [25, 'PDF'], csv: [150, 'CSV'], xlsx: [150, 'XLS'], py: [250, 'PY'], mat: [60, 'MAT'], docx: [255, 'DOC'], pptx: [40, 'PPT'], png: [300, 'IMG'], txt: [0, 'TXT'] };
+const tile = t => t === 'folder' ? 'oklch(0.8 0.13 85)' : t === 'txt' ? 'oklch(0.55 0 0)' : `oklch(0.55 0.13 ${TYPES[t][0]})`;
+const ext = n => { const m = n.match(/\.(\w+)$/); return m ? m[1].toLowerCase() : 'folder'; };
+let uid = 100;
+const APP = { Origin: 20, MATLAB: 40, 'VS Code': 250, Zotero: 25, ImageJ: 300, Chrome: 150, Python: 230, Excel: 150, Snipaste: 200, Everything: 30, 'Notepad++': 130, '7-Zip': 0, Teams: 280, WeChat: 145 };
+const L = (name, uses, last, kind) => ({ id: 'l' + (uid++), name, kind: kind || (APP[name] != null ? 'app' : ext(name)), uses, last });
+
+class Component extends DCLogic {
+  deskRef = React.createRef();
+  searchRef = React.createRef();
+  lSearchRef = React.createRef();
+  state = {
+    lOpen: false, lx: 436, ly: 220, lq: '', activeTab: 'tb1', editingTab: null, toast: '', lHi: null,
+    tabs: [
+      { id: 'tb1', name: { en: 'Lab software', zh: '实验软件' }, sort: 'used', items: [L('Origin', 42, 3), L('MATLAB', 31, 20), L('ImageJ', 18, 50), L('Zotero', 27, 1), L('VS Code', 35, 0), L('Python', 22, 6), L('Excel', 15, 30), L('Chrome', 40, 0)] },
+      { id: 'tb2', name: { en: 'Current project', zh: '当前课题' }, sort: 'manual', items: [L('Exp_A_spectra', 14, 2, 'folder'), L('Thesis_ch3', 9, 26, 'folder'), L('run_0923.csv', 6, 70), L('plot_fig2.py', 11, 4), L('XRD_batch4.xlsx', 5, 48)] },
+      { id: 'tb3', name: { en: 'Papers', zh: '文献' }, sort: 'recent', items: [L('Zhang2024_perovskite.pdf', 4, 30), L('Review_ML_catalysis.pdf', 2, 200), L('Smith_Nature_2025.pdf', 7, 5)] },
+      { id: 'tb4', name: { en: 'Tools', zh: '工具' }, sort: 'name', items: [L('Snipaste', 50, 1), L('Everything', 33, 2), L('Notepad++', 12, 12), L('7-Zip', 6, 90), L('Teams', 9, 22), L('WeChat', 38, 0)] }
+    ],
+    lang: null, themePref: null, sysDark: typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches,
+    panelOpen: true, pinned: true, query: '', drawMode: false, draft: null, peek: false,
+    reviewOpen: false, reviewDone: false, archived: [], focusId: null, editingZone: null, newTodo: '',
+    zones: [
+      { id: 'z1', name: { en: 'Projects', zh: '项目' }, x: 24, y: 24, w: 316, h: 196, hue: 250, collapsed: false },
+      { id: 'z2', name: { en: 'Papers', zh: '文献' }, x: 24, y: 236, w: 316, h: 196, hue: 300, collapsed: false },
+      { id: 'z3', name: { en: 'Datasets & results', zh: '数据与结果' }, x: 24, y: 448, w: 316, h: 196, hue: 150, collapsed: false },
+      { id: 'z4', name: { en: 'Temp', zh: '临时' }, x: 356, y: 24, w: 316, h: 214, hue: 60, collapsed: false }
+    ],
+    items: [
+      ['Exp_A_spectra', 'z1'], ['Thesis_ch3', 'z1'], ['Grant_2026', 'z1'], ['Lab_meeting_1002.pptx', 'z1'],
+      ['Zhang2024_perovskite.pdf', 'z2'], ['Review_ML_catalysis.pdf', 'z2'], ['Smith_Nature_2025.pdf', 'z2'], ['reading_notes.docx', 'z2'],
+      ['run_0923.csv', 'z3'], ['XRD_batch4.xlsx', 'z3'], ['fit_results.mat', 'z3'], ['plot_fig2.py', 'z3'],
+      ['screenshot_0912.png', 'z4', 18], ['tmp_calc.xlsx', 'z4', 9], ['新建文本文档.txt', 'z4', 21], ['draft_email.txt', 'z4', 2], ['copy_of_run.csv', 'z4', 12]
+    ].map(([name, zone, age = 0], i) => ({ id: 'i' + i, name, zone, age, type: ext(name) })),
+    todos: [
+      { id: 't1', text: { en: 'Send XRD data to Prof. Li', zh: '把 XRD 数据发给李老师' }, due: { en: 'Fri', zh: '周五' }, link: 'XRD_batch4.xlsx', done: false },
+      { id: 't2', text: { en: 'Fix Fig. 2 axis labels', zh: '修改图 2 坐标轴标签' }, link: 'plot_fig2.py', done: false },
+      { id: 't3', text: { en: 'Book microscope slot', zh: '预约显微镜机时' }, due: { en: 'Oct 3', zh: '10月3日' }, done: false },
+      { id: 't4', text: { en: 'Read Zhang 2024', zh: '读 Zhang 2024' }, link: 'Zhang2024_perovskite.pdf', done: true }
+    ]
+  };
+
+  componentDidMount() {
+    this.onMove = e => {
+      this.lastClient = { x: e.clientX, y: e.clientY };
+      const d = this.moving; if (!d) return;
+      const s = this.scale();
+      this.setState(st => ({ zones: st.zones.map(z => z.id === d.id ? { ...z, x: Math.max(0, Math.round(d.ox + (e.clientX - d.sx) / s)), y: Math.max(0, Math.round(d.oy + (e.clientY - d.sy) / s)) } : z) }));
+    };
+    this.onUp = () => { this.moving = null; };
+    this.onKey = e => {
+      if (e.ctrlKey && e.code === 'Space') { e.preventDefault(); this.setState({ panelOpen: true }); setTimeout(() => this.searchRef.current && this.searchRef.current.focus(), 50); }
+      if (e.ctrlKey && (e.code === 'Numpad0' || e.key === '0')) { e.preventDefault(); this.state.lOpen ? this.setState({ lOpen: false }) : this.openL(); return; }
+      if (e.key === 'Escape') this.setState({ drawMode: false, draft: null, query: '', lOpen: false, editingTab: null });
+    };
+    window.addEventListener('mousemove', this.onMove);
+    window.addEventListener('mouseup', this.onUp);
+    window.addEventListener('keydown', this.onKey);
+    if (typeof matchMedia !== 'undefined') { this.mq = matchMedia('(prefers-color-scheme: dark)'); this.mqf = e => this.setState({ sysDark: e.matches }); this.mq.addEventListener('change', this.mqf); }
+  }
+  componentWillUnmount() {
+    window.removeEventListener('mousemove', this.onMove); window.removeEventListener('mouseup', this.onUp); window.removeEventListener('keydown', this.onKey);
+    this.mq && this.mq.removeEventListener('change', this.mqf);
+  }
+  scale() { const el = this.deskRef.current; return el ? el.getBoundingClientRect().width / 1440 : 1; }
+  pt(e) { const r = this.deskRef.current.getBoundingClientRect(), s = r.width / 1440; return { x: (e.clientX - r.left) / s, y: (e.clientY - r.top) / s }; }
+  focus(id) {
+    const it = this.state.items.find(i => i.id === id); if (!it) return;
+    this.setState(st => ({ focusId: id, peek: false, zones: st.zones.map(z => z.id === it.zone ? { ...z, collapsed: false } : z) }));
+    clearTimeout(this.ft); this.ft = setTimeout(() => this.setState({ focusId: null }), 2600);
+  }
+  openL() {
+    let x = 720, y = 400; const el = this.deskRef.current;
+    if (el && this.lastClient) { const r = el.getBoundingClientRect(), s = r.width / 1440, px = (this.lastClient.x - r.left) / s, py = (this.lastClient.y - r.top) / s; if (px >= 0 && px <= 1440 && py >= 0 && py <= 900) { x = px; y = py; } }
+    this.setState({ lOpen: true, lq: '', lx: Math.round(Math.min(Math.max(8, x - 284), 1440 - 576)), ly: Math.round(Math.min(Math.max(8, y - 194), 900 - 48 - 396)) });
+    setTimeout(() => this.lSearchRef.current && this.lSearchRef.current.focus(), 40);
+  }
+  showToast(m) { this.setState({ toast: m }); clearTimeout(this.tt); this.tt = setTimeout(() => this.setState({ toast: '' }), 1800); }
+  moveL(srcId, tabId, beforeId) {
+    this.setState(s2 => {
+      let moved; const t0 = s2.tabs.map(tb => { const f = tb.items.find(i => i.id === srcId); if (f) { moved = f; return { ...tb, items: tb.items.filter(i => i.id !== srcId) }; } return tb; });
+      if (!moved) return null;
+      return { tabs: t0.map(tb => { if (tb.id !== tabId) return tb; const a = [...tb.items]; let k = beforeId ? a.findIndex(i => i.id === beforeId) : -1; if (k < 0) k = a.length; a.splice(k, 0, moved); return { ...tb, items: a }; }) };
+    });
+  }
+  zname(z, lang) { return typeof z.name === 'string' ? z.name : z.name[lang]; }
+
+  renderVals() {
+    const st = this.state, p = this.props;
+    const lang = st.lang || p.lang || 'en', t = I18N[lang];
+    const themePref = st.themePref || p.theme || 'auto';
+    const themeEff = themePref === 'auto' ? (st.sysDark ? 'dark' : 'light') : themePref;
+    const staleDays = p.staleDays ?? 7;
+    const q = st.query.trim().toLowerCase();
+    const isStale = i => i.zone === 'z4' && i.age >= staleDays;
+
+    const itemV = i => {
+      const match = !q || i.name.toLowerCase().includes(q);
+      return {
+        ...i, bg: tile(i.type), label: TYPES[i.type] ? TYPES[i.type][1] : i.type.toUpperCase().slice(0, 3), isFolder: i.type === 'folder',
+        stale: isStale(i), op: match ? 1 : 0.25,
+        ring: st.focusId === i.id ? '0 0 0 2px var(--accent), 0 0 0 6px rgba(120,160,255,.25)' : 'none',
+        onDragStart: e => { this.dragItem = i.id; e.dataTransfer.effectAllowed = 'move'; },
+        onClick: () => this.focus(i.id)
+      };
+    };
+    const commitName = (id, v) => this.setState(s2 => ({ editingZone: null, zones: s2.zones.map(z => z.id === id ? { ...z, name: v.trim() || t.newZone } : z) }));
+    const zones = st.zones.map(z => {
+      const its = st.items.filter(i => i.zone === z.id);
+      return {
+        id: z.id, x: z.x, y: z.y, w: z.w, hCss: z.collapsed ? '34px' : z.h + 'px', name: this.zname(z, lang),
+        color: `oklch(0.7 0.14 ${z.hue})`, count: its.length, open: !z.collapsed, chev: z.collapsed ? '▸' : '▾',
+        op: st.peek ? 0 : 1, pe: st.peek ? 'none' : 'auto',
+        editing: st.editingZone === z.id, notEditing: st.editingZone !== z.id,
+        items: its.map(itemV),
+        onToggle: () => this.setState(s2 => ({ zones: s2.zones.map(x => x.id === z.id ? { ...x, collapsed: !x.collapsed } : x) })),
+        onDelete: () => this.setState(s2 => {
+          const rest = s2.zones.filter(x => x.id !== z.id); const fb = rest[0] && rest[0].id;
+          return { zones: rest, items: fb ? s2.items.map(i => i.zone === z.id ? { ...i, zone: fb } : i) : s2.items };
+        }),
+        onHeaderDown: e => { if (e.target.closest('button,input')) return; this.moving = { id: z.id, sx: e.clientX, sy: e.clientY, ox: z.x, oy: z.y }; },
+        onDragOver: e => e.preventDefault(),
+        onDrop: e => { e.preventDefault(); const id = this.dragItem; this.dragItem = null; if (id) this.setState(s2 => ({ items: s2.items.map(i => i.id === id ? { ...i, zone: z.id } : i) })); },
+        onStartRename: () => this.setState({ editingZone: z.id }),
+        onRenameKey: e => { if (e.key === 'Enter') commitName(z.id, e.target.value); if (e.key === 'Escape') this.setState({ editingZone: null }); },
+        onRenameBlur: e => commitName(z.id, e.target.value)
+      };
+    });
+
+    const zById = Object.fromEntries(st.zones.map(z => [z.id, this.zname(z, lang)]));
+    const results = q ? st.items.filter(i => i.name.toLowerCase().includes(q)).map(i => ({ ...itemV(i), where: zById[i.zone], onClick: () => this.focus(i.id) })) : [];
+    const stale = st.items.filter(isStale);
+    const d = st.draft;
+    const draft = d ? { x: Math.min(d.x0, d.x1), y: Math.min(d.y0, d.y1), w: Math.abs(d.x1 - d.x0), h: Math.abs(d.y1 - d.y0) } : { x: 0, y: 0, w: 0, h: 0 };
+    const findByName = n => st.items.find(i => i.name === n);
+    const open = st.panelOpen;
+
+    const tabName = tb => typeof tb.name === 'string' ? tb.name : tb.name[lang];
+    const tab = st.tabs.find(x => x.id === st.activeTab) || st.tabs[0];
+    const lq = st.lq.trim().toLowerCase();
+    const SORT = { name: (a, b) => a.name.localeCompare(b.name), used: (a, b) => b.uses - a.uses, recent: (a, b) => a.last - b.last, type: (a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name) };
+    let lRaw = lq ? st.tabs.flatMap(tb => tb.items.map(i => ({ ...i, tabId: tb.id }))).filter(i => i.name.toLowerCase().includes(lq)) : (tab ? tab.items.map(i => ({ ...i, tabId: tab.id })) : []);
+    const sortKey = tab ? tab.sort : 'manual';
+    if (SORT[sortKey]) lRaw = [...lRaw].sort(SORT[sortKey]);
+    const ago = h => h < 1 ? t.now : h < 24 ? t.hAgo(h) : t.dAgo(Math.round(h / 24));
+    const launch = i => {
+      this.setState(s2 => ({ lOpen: false, tabs: s2.tabs.map(tb => ({ ...tb, items: tb.items.map(x => x.id === i.id ? { ...x, uses: x.uses + 1, last: 0 } : x) })) }));
+      this.showToast(t.opening(i.name));
+    };
+    const freeze = () => { if (tab && tab.sort !== 'manual' && !lq) { const order = lRaw.map(i => i.id); this.setState(s2 => ({ tabs: s2.tabs.map(tb => tb.id === tab.id ? { ...tb, sort: 'manual', items: order.map(id => tb.items.find(x => x.id === id)) } : tb) })); } };
+    const addFromDesk = tabId => {
+      const it = st.items.find(i => i.id === this.dragItem); this.dragItem = null; if (!it) return false;
+      this.setState(s2 => ({ tabs: s2.tabs.map(tb => tb.id === tabId && !tb.items.some(x => x.name === it.name) ? { ...tb, items: [...tb.items, L(it.name, 0, 999, it.type)] } : tb) }));
+      return true;
+    };
+    const lItems = lRaw.map(i => {
+      const isApp = i.kind === 'app';
+      return {
+        name: i.name, label: isApp ? i.name[0] : (TYPES[i.kind] ? TYPES[i.kind][1] : i.kind.toUpperCase().slice(0, 3)),
+        bg: isApp ? 'var(--card)' : tile(i.kind), border: isApp ? 'var(--stroke)' : 'transparent', fg: isApp ? `oklch(0.6 0.15 ${APP[i.name] ?? 250})` : '#fff', fs: isApp ? 16 : 9,
+        meta: sortKey === 'used' ? i.uses + '×' : sortKey === 'recent' ? ago(i.last) : '',
+        ring: st.lHi === i.id ? 'inset 0 0 0 1.5px var(--accent)' : 'none',
+        onDragStart: e => { this.dragL = i.id; e.dataTransfer.effectAllowed = 'move'; e.stopPropagation(); },
+        onDragOver: e => { e.preventDefault(); if (this.dragL && st.lHi !== i.id) this.setState({ lHi: i.id }); },
+        onDrop: e => { e.preventDefault(); e.stopPropagation(); this.setState({ lHi: null }); if (addFromDesk(i.tabId)) return; const src = this.dragL; this.dragL = null; if (!src || src === i.id || lq) return; freeze(); this.moveL(src, i.tabId, i.id); },
+        onClick: () => launch(i)
+      };
+    });
+    const commitTab = (id, v) => this.setState(s2 => ({ editingTab: null, tabs: s2.tabs.map(tb => tb.id === id ? { ...tb, name: v.trim() || t.newTab } : tb) }));
+    const lTabs = st.tabs.map((tb, k) => {
+      const on = tab && tb.id === tab.id && !lq;
+      return {
+        name: tabName(tb), count: tb.items.length, bg: on ? 'var(--card)' : 'transparent', bar: on ? 'var(--accent)' : 'transparent', weight: on ? 600 : 400, outline: 'none',
+        editing: st.editingTab === tb.id, notEditing: st.editingTab !== tb.id,
+        onClick: () => this.setState({ activeTab: tb.id, lq: '' }),
+        onRename: () => this.setState({ editingTab: tb.id }),
+        onRenameKey: e => { e.stopPropagation(); if (e.key === 'Enter') commitTab(tb.id, e.target.value); if (e.key === 'Escape') this.setState({ editingTab: null }); },
+        onRenameBlur: e => commitTab(tb.id, e.target.value),
+        onDragOver: e => e.preventDefault(),
+        onDrop: e => { e.preventDefault(); if (addFromDesk(tb.id)) return; const src = this.dragL; this.dragL = null; if (src) this.moveL(src, tb.id, null); }
+      };
+    });
+    const cycle = d => { const k = st.tabs.findIndex(x => tab && x.id === tab.id); const n = st.tabs.length; this.setState({ activeTab: st.tabs[(k + d + n) % n].id, lq: '' }); };
+
+    return {
+      lOpen: st.lOpen, lx: st.lx, ly: st.ly, lq: st.lq, lSearchRef: this.lSearchRef, lTabs, lItems,
+      lEmpty: !lItems.length, lEmptyText: lq ? t.lNoMatch : t.lEmpty,
+      openLauncher: () => this.openL(), lClose: () => this.setState({ lOpen: false, editingTab: null }),
+      onLq: e => this.setState({ lq: e.target.value }),
+      onLqKey: e => { if (e.key === 'Tab') { e.preventDefault(); cycle(e.shiftKey ? -1 : 1); } if (e.key === 'Enter' && lRaw[0]) launch(lRaw[0]); },
+      lSorts: ['manual', 'name', 'used', 'recent', 'type'].map(k => ({ label: t.sorts[k], bg: sortKey === k ? 'var(--accent)' : 'transparent', fg: sortKey === k ? 'var(--accentfg)' : 'var(--fg)', border: sortKey === k ? 'var(--accent)' : 'var(--stroke)', onClick: () => this.setState(s2 => ({ tabs: s2.tabs.map(tb => tab && tb.id === tab.id ? { ...tb, sort: k } : tb) })) })),
+      lAddTab: () => { const id = 'tb' + (uid++); this.setState(s2 => ({ tabs: [...s2.tabs, { id, name: t.newTab, sort: 'manual', items: [] }], activeTab: id, editingTab: id, lq: '' })); },
+      lGridOver: e => e.preventDefault(),
+      lGridDrop: e => { e.preventDefault(); this.setState({ lHi: null }); if (tab && addFromDesk(tab.id)) return; const src = this.dragL; this.dragL = null; if (src && tab && !lq) { freeze(); this.moveL(src, tab.id, null); } },
+      hasToast: !!st.toast, toast: st.toast,
+      t, themeEff, deskRef: this.deskRef, searchRef: this.searchRef, zones,
+      apps: [['Origin', 20], ['MATLAB', 40], ['VS Code', 250], ['Zotero', 25], ['ImageJ', 300], ['Chrome', 150]].map(([name, h]) => ({ name, letter: name[0], color: `oklch(0.6 0.15 ${h})` })),
+      drawMode: st.drawMode, hasDraft: !!d, draft,
+      startDraw: () => this.setState({ drawMode: true, draft: null, peek: false }),
+      drawDown: e => { const a = this.pt(e); this.setState({ draft: { x0: a.x, y0: a.y, x1: a.x, y1: a.y } }); },
+      drawMove: e => { if (!st.draft) return; const a = this.pt(e); this.setState(s2 => s2.draft ? { draft: { ...s2.draft, x1: a.x, y1: a.y } } : null); },
+      drawUp: () => {
+        const r = draft;
+        if (r.w >= 140 && r.h >= 80) {
+          const id = 'z' + (uid++);
+          const hue = [20, 200, 330, 110, 270][uid % 5];
+          this.setState(s2 => ({ drawMode: false, draft: null, editingZone: id, zones: [...s2.zones, { id, name: t.newZone, x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h), hue, collapsed: false }] }));
+        } else this.setState({ draft: null });
+      },
+      panelClosed: !open, panelX: open ? 0 : 360,
+      hoverOpen: () => this.setState({ panelOpen: true }),
+      panelLeave: () => { if (!st.pinned && !st.drawMode) this.setState({ panelOpen: false }); },
+      closePanel: () => this.setState({ panelOpen: false }),
+      togglePanel: () => this.setState(s2 => ({ panelOpen: !s2.panelOpen })),
+      togglePin: () => this.setState(s2 => ({ pinned: !s2.pinned })),
+      pinLabel: st.pinned ? t.pinned : t.unpinned, pinBg: st.pinned ? 'var(--hover)' : 'transparent',
+      query: st.query, onQuery: e => this.setState({ query: e.target.value }),
+      searching: !!q, notSearching: !q, results, noResults: !!q && !results.length,
+      resultsLabel: `${t.results} · ${results.length}`,
+      showReview: !st.reviewDone && stale.length > 0, reviewOpen: st.reviewOpen,
+      reviewBody: t.reviewBody(stale.length, staleDays), reviewBtn: st.reviewOpen ? t.hide : t.review,
+      staleList: stale.map(i => ({
+        name: i.name, ageLabel: i.age + t.days,
+        onKeep: () => this.setState(s2 => ({ items: s2.items.map(x => x.id === i.id ? { ...x, age: 0 } : x) })),
+        onArchive: () => this.setState(s2 => ({ items: s2.items.filter(x => x.id !== i.id), archived: [...s2.archived, i] }))
+      })),
+      archiveAll: () => this.setState(s2 => ({ items: s2.items.filter(x => !isStale(x)), archived: [...s2.archived, ...s2.items.filter(isStale)], reviewOpen: false })),
+      toggleReview: () => this.setState(s2 => ({ reviewOpen: !s2.reviewOpen })),
+      later: () => this.setState({ reviewDone: true }),
+      hasArchived: st.archived.length > 0, archivedLabel: t.archived(st.archived.length),
+      restore: () => this.setState(s2 => ({ items: [...s2.items, ...s2.archived.map(i => ({ ...i, age: 0 }))], archived: [] })),
+      togglePeek: () => this.setState(s2 => ({ peek: !s2.peek })), peekBg: st.peek ? 'var(--hover)' : 'transparent',
+      todoHeader: `${t.todo} · ${st.todos.filter(x => !x.done).length}`,
+      todos: st.todos.map(x => ({
+        text: typeof x.text === 'string' ? x.text : x.text[lang], due: x.due ? x.due[lang] : '', link: x.link || '',
+        mark: x.done ? '✓' : '', cbBg: x.done ? 'var(--accent)' : 'transparent', cbBorder: x.done ? 'var(--accent)' : 'var(--fg2)',
+        deco: x.done ? 'line-through' : 'none', color: x.done ? 'var(--fg2)' : 'var(--fg)',
+        onToggle: () => this.setState(s2 => ({ todos: s2.todos.map(y => y.id === x.id ? { ...y, done: !y.done } : y) })),
+        onLink: () => { const it = findByName(x.link); if (it) this.focus(it.id); }
+      })),
+      newTodo: st.newTodo, onNewTodo: e => this.setState({ newTodo: e.target.value }),
+      onNewTodoKey: e => { if (e.key === 'Enter' && st.newTodo.trim()) this.setState(s2 => ({ newTodo: '', todos: [...s2.todos, { id: 't' + (uid++), text: s2.newTodo.trim(), done: false }] })); },
+      langOpts: [['en', 'EN'], ['zh', '中文']].map(([k, label]) => ({ label, bg: lang === k ? 'var(--card)' : 'transparent', onClick: () => this.setState({ lang: k }) })),
+      themeOpts: ['auto', 'light', 'dark'].map(k => ({ label: t[k], bg: themePref === k ? 'var(--card)' : 'transparent', onClick: () => this.setState({ themePref: k }) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

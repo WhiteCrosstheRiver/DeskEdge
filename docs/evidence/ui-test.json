@@ -1,0 +1,323 @@
+{
+  "mode": "Own ImGui input queue + native HWND/D3D/Shell/file operations",
+  "passed": true,
+  "checks": [
+    {
+      "name": "Default zones and scaled panel geometry",
+      "pass": true
+    },
+    {
+      "name": "Desktop regions use GPU DirectComposition without layered-window CPU copies",
+      "pass": true
+    },
+    {
+      "name": "Wallpaper glass material is uploaded and cached",
+      "pass": true
+    },
+    {
+      "name": "System drag threshold prevents accidental title movement",
+      "pass": true
+    },
+    {
+      "name": "Captured drag follows the full initial cursor delta without a threshold jump",
+      "pass": true
+    },
+    {
+      "name": "Dragging leaves the persisted model untouched until mouse release",
+      "pass": true
+    },
+    {
+      "name": "Dragging neither repositions other windows nor reallocates render surfaces",
+      "pass": true
+    },
+    {
+      "metric": "120 native geometry updates, milliseconds",
+      "value": 239.2553
+    },
+    {
+      "name": "Cancelling a captured drag restores geometry and preserves layout",
+      "pass": true
+    },
+    {
+      "name": "Mouse release queues exactly one layout commit",
+      "pass": true
+    },
+    {
+      "name": "Released drag persists screen coordinates in DPI-independent units",
+      "pass": true
+    },
+    {
+      "name": "Resize input coalesces GPU allocation until the next rendered frame",
+      "pass": true
+    },
+    {
+      "name": "A resized frame allocates one surface for the latest size",
+      "pass": true
+    },
+    {
+      "name": "Collapse starts a bounded height transition",
+      "pass": true
+    },
+    {
+      "name": "Collapse settles to the exact target and stops its animation timer",
+      "pass": true
+    },
+    {
+      "name": "Hide updates logical visibility while the compositor finishes fading",
+      "pass": true
+    },
+    {
+      "name": "Reopening during fade cancels the pending native hide",
+      "pass": true
+    },
+    {
+      "name": "Fade completion hides the HWND and stops its timer",
+      "pass": true
+    },
+    {
+      "name": "Demo stale files are isolated fixtures",
+      "pass": true
+    },
+    {
+      "name": "Review button opens file list",
+      "pass": true
+    },
+    {
+      "name": "Keep button resets a file's age",
+      "pass": true
+    },
+    {
+      "name": "Archive button performs actual file moves",
+      "pass": true
+    },
+    {
+      "name": "Restore button restores files and references",
+      "pass": true
+    },
+    {
+      "name": "Task field handles Chinese text and Enter",
+      "pass": true
+    },
+    {
+      "name": "Desktop search input matches a fixture (query=XRD, matches=1)",
+      "pass": true
+    },
+    {
+      "name": "Escape clears desktop search",
+      "pass": true
+    },
+    {
+      "name": "Collapse changes native window height",
+      "pass": true
+    },
+    {
+      "name": "Expand restores zone contents",
+      "pass": true
+    },
+    {
+      "name": "Launcher is scaled to the cursor monitor",
+      "pass": true
+    },
+    {
+      "name": "Tab switches launcher groups",
+      "pass": true
+    },
+    {
+      "name": "External drop without private payload is accepted",
+      "pass": true
+    },
+    {
+      "name": "Sort button updates active tab",
+      "pass": true
+    },
+    {
+      "name": "Tab drop hit regions move launcher references",
+      "pass": true
+    },
+    {
+      "name": "Create private Windows shortcut fixture",
+      "pass": true
+    },
+    {
+      "name": "Shortcut stores launch arguments",
+      "pass": true
+    },
+    {
+      "name": "Launcher input searches across tabs",
+      "pass": true
+    },
+    {
+      "name": "Enter launches a real .lnk and preserves its arguments",
+      "pass": true
+    },
+    {
+      "name": "Launcher closes after launch",
+      "pass": true
+    },
+    {
+      "name": "Language button switches to English",
+      "pass": true
+    },
+    {
+      "name": "Theme button applies dark palette",
+      "pass": true
+    },
+    {
+      "name": "Settings opens native window",
+      "pass": true
+    },
+    {
+      "name": "Escape closes settings",
+      "pass": true
+    },
+    {
+      "name": "Draw command creates monitor overlays",
+      "pass": true
+    },
+    {
+      "name": "Drawing creates a region and removes overlays",
+      "pass": true
+    },
+    {
+      "name": "New region enters title editing",
+      "pass": true
+    },
+    {
+      "name": "New region title accepts Chinese text and saves",
+      "pass": true
+    },
+    {
+      "name": "Peek hides zones",
+      "pass": true
+    },
+    {
+      "name": "Peek restores zones",
+      "pass": true
+    },
+    {
+      "name": "Native directory event imports a newly created file",
+      "pass": true
+    },
+    {
+      "name": "Native rename event preserves file identity",
+      "pass": true
+    },
+    {
+      "name": "Windows provides the actual file context menu",
+      "pass": true
+    },
+    {
+      "name": "Real Shell menu exposes copy",
+      "pass": true
+    },
+    {
+      "name": "Real Shell menu exposes cut",
+      "pass": true
+    },
+    {
+      "name": "Real Shell menu exposes delete",
+      "pass": true
+    },
+    {
+      "name": "Real Shell menu exposes properties",
+      "pass": true
+    },
+    {
+      "name": "Real Shell menu exposes rename",
+      "pass": true
+    },
+    {
+      "name": "Windows provides the folder background menu",
+      "pass": true
+    },
+    {
+      "name": "Outgoing drag retains Shell ID lists",
+      "pass": true
+    },
+    {
+      "name": "Native Shell data retains Unicode paths and DeskEdge grouping metadata",
+      "pass": true
+    },
+    {
+      "name": "Native drop cursor effect 1",
+      "pass": true
+    },
+    {
+      "name": "Native Shell drop completes",
+      "pass": true
+    },
+    {
+      "name": "Ctrl drag copies the real file",
+      "pass": true
+    },
+    {
+      "name": "Native drop cursor effect 2",
+      "pass": true
+    },
+    {
+      "name": "Native Shell drop completes",
+      "pass": true
+    },
+    {
+      "name": "Same-volume drag moves the real file",
+      "pass": true
+    },
+    {
+      "name": "Native drop cursor effect 4",
+      "pass": true
+    },
+    {
+      "name": "Native Shell drop completes",
+      "pass": true
+    },
+    {
+      "name": "Ctrl+Shift drag creates a genuine Windows shortcut",
+      "pass": true
+    },
+    {
+      "name": "IFileOperation renames the real Unicode file",
+      "pass": true
+    },
+    {
+      "name": "Windows folder accepts the native file data object",
+      "pass": true
+    },
+    {
+      "name": "Dropping onto a folder writes inside that folder",
+      "pass": true
+    },
+    {
+      "name": "Ctrl+A selects multiple files in the region",
+      "pass": true
+    },
+    {
+      "name": "Internal multi-file drag advertises regrouping",
+      "pass": true
+    },
+    {
+      "name": "Internal multi-file drop regroups without moving desktop files",
+      "pass": true
+    },
+    {
+      "name": "F2 and Enter rename in place while preserving the extension and file identity",
+      "pass": true
+    },
+    {
+      "name": "Shell Copy places native file data on the clipboard",
+      "pass": true
+    },
+    {
+      "name": "Ctrl+V pastes an actual copied file into the region",
+      "pass": true
+    },
+    {
+      "name": "Ctrl+V honors the Shell Cut move effect",
+      "pass": true
+    },
+    {
+      "name": "Multiple-file F2 uses numbered names and preserves each file type",
+      "pass": true
+    }
+  ],
+  "frames": 108
+}

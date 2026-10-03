@@ -1,0 +1,2 @@
+PASS 34 checks
+10,000 items: create 14.3805 ms, search mean 0.923785 ms

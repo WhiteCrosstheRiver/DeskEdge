@@ -1,0 +1,9 @@
+{
+  "second_instance_exit_code": 0,
+  "state_unchanged_on_second_launch": true,
+  "forced_stop_pid": 88560,
+  "restoration": {
+    "watched_pid": 88560,
+    "icons_restored": true
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "frames": 40,
+  "icon_cache": 21,
+  "working_set_bytes": 67997696,
+  "zones": 4,
+  "desktop_hosted": true,
+  "render_backend": "DirectComposition / BGRA premultiplied flip swapchain",
+  "animations_enabled": true,
+  "pid": 34628,
+  "native_windows": [
+    {
+      "zone": "projects",
+      "valid": true,
+      "hosted": true,
+      "parent_class": "SHELLDLL_DefView",
+      "scale": 1.25,
+      "width": 395,
+      "height": 245,
+      "gpu_composition": true,
+      "surface_allocations": 1,
+      "geometry_updates": 1
+    },
+    {
+      "zone": "papers",
+      "valid": true,
+      "hosted": true,
+      "parent_class": "SHELLDLL_DefView",
+      "scale": 1.25,
+      "width": 395,
+      "height": 245,
+      "gpu_composition": true,
+      "surface_allocations": 1,
+      "geometry_updates": 1
+    },
+    {
+      "zone": "data",
+      "valid": true,
+      "hosted": true,
+      "parent_class": "SHELLDLL_DefView",
+      "scale": 1.25,
+      "width": 395,
+      "height": 245,
+      "gpu_composition": true,
+      "surface_allocations": 1,
+      "geometry_updates": 1
+    },
+    {
+      "zone": "temp",
+      "valid": true,
+      "hosted": true,
+      "parent_class": "SHELLDLL_DefView",
+      "scale": 1.25,
+      "width": 395,
+      "height": 267,
+      "gpu_composition": true,
+      "surface_allocations": 1,
+      "geometry_updates": 1
+    }
+  ],
+  "native_icons_initially_visible": true,
+  "native_icons_hidden_during_run": true
+}
