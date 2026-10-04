@@ -170,9 +170,12 @@ Json Engine::defaults() {
     return {{"version", 1},
             {"settings",
              {{"language", "zh"},
-              {"theme", "auto"},
+              {"theme", "light"},
               {"glass_opacity", 55},
               {"animations", true},
+              {"grid_mode", true},
+              {"window_grid", true},
+              {"card_style", true},
               {"pinned", true},
               {"stale_days", 7},
               {"monitor", ""},
@@ -285,8 +288,12 @@ Engine::Engine(fs::path directory) : data_dir(std::move(directory)) {
         z["h"] = std::clamp(z.value("h", 196.f), 80.f, 10000.f);
     }
     recover_moves();
+    ensure_zone_grid();
+    ensure_grid();
 }
 void Engine::save() {
+    ensure_zone_grid();
+    ensure_grid();
     invalidate_search();
     auto text = state.dump(2);
     auto temp = data_dir / L"state.tmp", dest = data_dir / L"state.json",
@@ -368,7 +375,7 @@ void Engine::remove_zone(std::string s) {
     if (!orphan.empty()) {
         auto target = ensure_zone();
         for (auto &ident : orphan)
-            (*item(ident))["zone"] = target;
+            move_zone(ident, target);
     }
 }
 std::string Engine::add_file(const fs::path &original, std::string target, bool desktop) {
@@ -380,8 +387,10 @@ std::string Engine::add_file(const fs::path &original, std::string target, bool 
     auto text = pathstr(path);
     for (auto &i : state["items"])
         if (path_equal(i["path"].get<std::string>(), text)) {
-            if (zone(target))
+            if (zone(target) && i["zone"] != target) {
                 i["zone"] = target;
+                i.erase("grid");
+            }
             i["desktop"] = desktop || i.value("desktop", false);
             i["written"] = file_time(path);
             return i["id"];
@@ -458,8 +467,10 @@ void Engine::rename_path(const fs::path &from, const fs::path &to) {
 }
 void Engine::move_zone(std::string i, std::string z) {
     invalidate_search();
-    if (auto ptr = item(i); ptr && zone(z))
+    if (auto ptr = item(i); ptr && zone(z) && (*ptr)["zone"] != z) {
         (*ptr)["zone"] = z;
+        ptr->erase("grid");
+    }
 }
 std::string Engine::add_to_tab(std::string s, const fs::path &p, std::string label) {
     invalidate_search();
@@ -672,8 +683,10 @@ void Engine::finish_move(const Json &move) {
         copy["path"] = to;
         copy["name"] = filename(wide(to));
         copy["kept"] = clock();
-        if (!zone(copy["zone"].get<std::string>()))
+        if (!zone(copy["zone"].get<std::string>())) {
             copy["zone"] = ensure_zone();
+            copy.erase("grid");
+        }
         state["items"].push_back(copy);
         a.erase(it);
     }

@@ -86,6 +86,7 @@ int Application::run_ui_tests() {
                 "Default zones and scaled panel geometry");
         {
             auto &zone = *zones.front();
+            engine.state["settings"]["window_grid"] = false;
             auto original = *engine.zone(zone.zone_id);
             RECT start{}, moved{}, restored{};
             GetWindowRect(zone.hwnd, &start);
@@ -141,6 +142,7 @@ int Application::run_ui_tests() {
             zone.end_geometry(true);
             perform_actions();
             *engine.zone(zone.zone_id) = original;
+            engine.state["settings"]["window_grid"] = true;
             commit();
             frame(zone);
             zone.test_animations = true;
@@ -170,6 +172,109 @@ int Application::run_ui_tests() {
                 zone.show();
             }
             zone.test_animations = false;
+            frame(zone);
+        }
+        {
+            auto &zone = *zones.front();
+            auto original = *engine.zone(zone.zone_id);
+            RECT start{}, moved{}, returned{};
+            GetWindowRect(zone.hwnd, &start);
+            POINT pointer{start.left + 40, start.top + 15};
+            zone.begin_geometry(pointer, false);
+            zone.update_geometry(
+                {pointer.x + static_cast<LONG>((1121 - original.value("x", 0.f)) * zone.scale),
+                 pointer.y + static_cast<LONG>((533 - original.value("y", 0.f)) * zone.scale)});
+            GetWindowRect(zone.hwnd, &moved);
+            require(moved.left == zone.screen.work.left + static_cast<LONG>(1128 * zone.scale) &&
+                        moved.top == zone.screen.work.top + static_cast<LONG>(528 * zone.scale),
+                    "125-percent DPI title drag snaps to the desktop lattice");
+            require(geometry_guide && geometry_guide->visible() && GetCapture() == zone.hwnd &&
+                        GetFocus() == zone.hwnd && geometry_guide->drop_target == nullptr,
+                    "Grid guide preserves the dragged window's capture and focus without a drop target");
+            require(SendMessageW(geometry_guide->hwnd, WM_NCHITTEST, 0, 0) == HTTRANSPARENT &&
+                        SendMessageW(geometry_guide->hwnd, WM_MOUSEACTIVATE, 0, 0) == MA_NOACTIVATE,
+                    "Guide window declines mouse targeting and activation");
+            frame(*geometry_guide);
+            {
+                D3D11_TEXTURE2D_DESC desc{};
+                geometry_guide->texture->GetDesc(&desc);
+                desc.Usage = D3D11_USAGE_STAGING;
+                desc.BindFlags = 0;
+                desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+                desc.MiscFlags = 0;
+                ComPtr<ID3D11Texture2D> readback;
+                require(SUCCEEDED(device->CreateTexture2D(&desc, nullptr, &readback)),
+                        "Guide alpha can be inspected in its own GPU render target");
+                device_context->CopyResource(readback.Get(), geometry_guide->texture.Get());
+                D3D11_MAPPED_SUBRESOURCE pixels{};
+                if (FAILED(device_context->Map(readback.Get(), 0, D3D11_MAP_READ, 0, &pixels)))
+                    throw std::runtime_error("Cannot inspect guide alpha");
+                int x =
+                    int((geometry_guide->guide_bounds.x + geometry_guide->guide_bounds.w / 2) * zone.scale);
+                int y =
+                    int((geometry_guide->guide_bounds.y + geometry_guide->guide_bounds.h / 2) * zone.scale);
+                auto bytes = static_cast<const uint8_t *>(pixels.pData);
+                auto background_alpha = bytes[3 * pixels.RowPitch + 3 * 4 + 3],
+                     center_alpha = bytes[y * pixels.RowPitch + x * 4 + 3];
+                device_context->Unmap(readback.Get(), 0);
+                require(background_alpha == 0 && center_alpha > 0 && center_alpha < 64,
+                        "Guide background is fully transparent and its placement fill remains translucent");
+                require(desc.Width < DWORD(zone.screen.work.right - zone.screen.work.left) &&
+                            desc.Height < DWORD(zone.screen.work.bottom - zone.screen.work.top),
+                        "Region guides allocate a bounded surface instead of a whole-monitor framebuffer");
+            }
+            if (!no_desktop)
+                require(geometry_guide->desktop_child &&
+                            GetParent(geometry_guide->hwnd) == GetParent(zone.hwnd),
+                        "Native guide shares the region's desktop host");
+            geometry_guide->export_preview(engine.data_dir / L"previews" / L"window-grid.png");
+            require(*engine.zone(zone.zone_id) == original && actions.empty(),
+                    "Snapped drag preview leaves persisted region geometry untouched");
+            zone.end_geometry();
+            require(actions.size() == 1 && !geometry_guide->visible(),
+                    "Snapped release hides its guide and queues one commit");
+            perform_actions();
+            require(engine.zone(zone.zone_id)->at("x") == 1128 && engine.zone(zone.zone_id)->at("y") == 528,
+                    "Region snap coordinates persist in logical units");
+            Engine reloaded(engine.data_dir);
+            require(reloaded.zone(zone.zone_id)->at("x") == 1128,
+                    "Region placement survives an independent profile reload");
+            POINT corner{moved.right - 4, moved.bottom - 4};
+            zone.begin_geometry(corner, true);
+            zone.update_geometry({corner.x + 34, corner.y + 28});
+            GetWindowRect(zone.hwnd, &returned);
+            require((returned.right - returned.left) == static_cast<LONG>(360 * zone.scale) &&
+                        (returned.bottom - returned.top) == static_cast<LONG>(240 * zone.scale),
+                    "Region resizing snaps both dimensions in physical DPI coordinates");
+            zone.end_geometry(true);
+            perform_actions();
+            GetWindowRect(zone.hwnd, &returned);
+            require(EqualRect(&moved, &returned) && !geometry_guide->visible(),
+                    "Cancelling snapped resize restores the original native bounds and removes guides");
+            pointer = {moved.left + 40, moved.top + 15};
+            zone.begin_geometry(pointer, false);
+            zone.update_geometry({pointer.x + 10000, pointer.y + 10000});
+            GetWindowRect(zone.hwnd, &returned);
+            require(returned.right <= zone.screen.work.right && returned.bottom <= zone.screen.work.bottom,
+                    "Region snapping at a monitor edge keeps the whole card inside the work area");
+            zone.end_geometry(true);
+            perform_actions();
+            auto occupied = engine.zone(zones[1]->zone_id);
+            zone.begin_geometry(pointer, false);
+            zone.update_geometry(
+                {pointer.x + static_cast<LONG>((occupied->value("x", 0.f) - 1128) * zone.scale),
+                 pointer.y + static_cast<LONG>((occupied->value("y", 0.f) - 528) * zone.scale)});
+            require(zone.placement_blocked && geometry_guide->placement_blocked,
+                    "Occupied region footprints are marked as unavailable");
+            frame(*geometry_guide);
+            geometry_guide->export_preview(engine.data_dir / L"previews" / L"window-grid-blocked.png");
+            zone.end_geometry();
+            perform_actions();
+            GetWindowRect(zone.hwnd, &returned);
+            require(EqualRect(&moved, &returned) && engine.zone(zone.zone_id)->at("x") == 1128,
+                    "Release over an occupied footprint restores the previous region placement");
+            *engine.zone(zone.zone_id) = original;
+            commit();
             frame(zone);
         }
         panel->export_preview(engine.data_dir / L"previews" / L"panel.png");
@@ -291,6 +396,10 @@ int Application::run_ui_tests() {
         perform_actions();
         require(!drawing && zones.size() == original_zones + 1,
                 "Drawing creates a region and removes overlays");
+        auto drawn = engine.zone(zones.back()->zone_id);
+        require(int(drawn->value("x", 0.f)) % 24 == 0 && int(drawn->value("y", 0.f)) % 24 == 0 &&
+                    int(drawn->value("w", 0.f)) % 24 == 0 && int(drawn->value("h", 0.f)) % 24 == 0,
+                "Newly drawn regions use the same position and size lattice");
         require(!zones.back()->rename_id.empty(), "New region enters title editing");
         auto new_region = zones.back().get();
         frame(*new_region);
@@ -516,6 +625,132 @@ int Application::run_ui_tests() {
         pump(500);
         require(fs::exists(roots[0] / L"批量文件 (1).txt") && fs::exists(roots[0] / L"批量文件 (2).csv"),
                 "Multiple-file F2 uses numbered names and preserves each file type");
+        {
+            engine.state["settings"]["language"] = "zh";
+            engine.state["settings"]["theme"] = "light";
+            auto grid_id = engine.add_zone(700, 450, 380, 310, monitor().name);
+            auto source_a = make_file(L"格点 A.csv"), source_b = make_file(L"格点 B.txt");
+            auto icon_folder = roots[0] / L"清晰文件夹";
+            fs::create_directories(icon_folder);
+            auto file_a = engine.add_file(source_a, grid_id), file_b = engine.add_file(source_b, grid_id);
+            engine.add_file(icon_folder, grid_id);
+            commit();
+            Window *grid = nullptr;
+            for (auto &zone : zones)
+                if (zone->zone_id == grid_id)
+                    grid = zone.get();
+            require(grid != nullptr, "Grid test region uses a real native window");
+            frame(*grid);
+            auto cell_point = [&](GridCell cell) {
+                POINT point{grid->grid_rect.left +
+                                static_cast<LONG>((cell.column + .5f) * GRID_CELL_WIDTH * grid->scale),
+                            grid->grid_rect.top +
+                                static_cast<LONG>((cell.row + .5f) * GRID_CELL_HEIGHT * grid->scale -
+                                                  grid->grid_scroll)};
+                require(grid->grid_at(point) == cell, "Pointer maps to the requested physical grid cell");
+                ClientToScreen(grid->hwnd, &point);
+                return POINTL{point.x, point.y};
+            };
+            auto original_b = engine.item(file_b)->at("grid");
+            auto grid_data =
+                shell_data({pathstr(source_a)}, {{"type", "desktop"}, {"id", file_a}, {"ids", {file_a}}});
+            auto grid_location = cell_point({3, 1});
+            DWORD effect = DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK;
+            grid->drop_target->DragEnter(grid_data.Get(), MK_LBUTTON, grid_location, &effect);
+            require(effect == DROPEFFECT_MOVE && grid->drop_hover,
+                    "Internal grid drag advertises a move and landing preview");
+            frame(*grid);
+            grid->export_preview(engine.data_dir / L"previews" / L"grid-landing.png");
+            require(engine.item(file_b)->at("grid") == original_b &&
+                        engine.item(file_a)->at("grid")["row"] == 0,
+                    "Landing preview leaves saved positions unchanged until drop");
+            effect = DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK;
+            grid->drop_target->Drop(grid_data.Get(), MK_LBUTTON, grid_location, &effect);
+            frame(*grid);
+            require(engine.item(file_a)->at("grid") == Json({{"column", 3}, {"row", 1}}) &&
+                        engine.item(file_b)->at("grid") == original_b && fs::exists(source_a),
+                    "Native grid drop keeps the chosen empty cell and preserves other icons and files");
+            auto landing_rect = grid->test_controls.at("file:" + file_a);
+            require(std::abs(landing_rect.x - (grid->grid_rect.left + 3 * GRID_CELL_WIDTH * grid->scale)) < 2,
+                    "Rendered icon occupies the persisted destination cell");
+            auto occupied_cell = GridCell{original_b["column"], original_b["row"]};
+            grid_location = cell_point(occupied_cell);
+            effect = DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK;
+            grid->drop_target->DragEnter(grid_data.Get(), MK_LBUTTON, grid_location, &effect);
+            require(effect == DROPEFFECT_MOVE, "Occupied non-folder cells remain valid grid targets");
+            grid->drop_target->Drop(grid_data.Get(), MK_LBUTTON, grid_location, &effect);
+            require(engine.item(file_b)->at("grid") == Json({{"column", 3}, {"row", 1}}),
+                    "Occupied-cell drop swaps the resident icon into the vacated cell");
+            auto group = shell_data({pathstr(source_a), pathstr(source_b)},
+                                    {{"type", "desktop"}, {"id", file_b}, {"ids", {file_a, file_b}}});
+            grid_location = cell_point({2, 1});
+            effect = DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK;
+            grid->drop_target->DragEnter(group.Get(), MK_LBUTTON, grid_location, &effect);
+            grid->drop_target->Drop(group.Get(), MK_LBUTTON, grid_location, &effect);
+            require(engine.item(file_a)->at("grid") == Json({{"column", 0}, {"row", 0}}) &&
+                        engine.item(file_b)->at("grid") == Json({{"column", 2}, {"row", 1}}),
+                    "Multi-icon native drop preserves the group's relative arrangement");
+            frame(*grid);
+            auto imported_source = make_file(L"外部落位.csv");
+            auto external_data = shell_data({pathstr(imported_source)}, {{"type", "external"}});
+            grid_location = cell_point({3, 2});
+            effect = DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK;
+            grid->drop_target->DragEnter(external_data.Get(), MK_LBUTTON | MK_CONTROL, grid_location,
+                                         &effect);
+            grid->drop_target->Drop(external_data.Get(), MK_LBUTTON | MK_CONTROL, grid_location, &effect);
+            std::string imported_id;
+            for (auto &item : engine.state["items"])
+                if (item["path"] == pathstr(roots[0] / imported_source.filename()))
+                    imported_id = item["id"];
+            require(!imported_id.empty() && fs::exists(imported_source) &&
+                        engine.item(imported_id)->at("grid") == Json({{"column", 3}, {"row", 2}}),
+                    "Native external copy lands its new icon in the indicated cell");
+            wchar_t executable[32768]{};
+            GetModuleFileNameW(nullptr, executable, 32768);
+            auto executable_path = utf8(executable);
+            icons->get(executable_path, 64);
+            icons->get(executable_path, 96);
+            ComPtr<ID3D11ShaderResourceView> at_64, at_96;
+            for (int attempt = 0; attempt < 30 && (!at_64 || !at_96); ++attempt) {
+                pump(100);
+                at_64 = icons->get(executable_path, 64);
+                at_96 = icons->get(executable_path, 96);
+            }
+            require(at_64 && at_96 && at_64 != at_96,
+                    "Shell icon cache retains independent physical-size variants");
+            ComPtr<ID3D11Resource> resource;
+            at_64->GetResource(&resource);
+            ComPtr<ID3D11Texture2D> texture;
+            resource.As(&texture);
+            D3D11_TEXTURE2D_DESC description{};
+            texture->GetDesc(&description);
+            require(description.Width >= 64 && description.Height >= 64,
+                    "125-percent DPI icon rendering uses a high-resolution Shell texture instead of a "
+                    "32-pixel stretch");
+            frame(*grid);
+            grid->export_preview(engine.data_dir / L"previews" / L"grid-occupied.png");
+            engine.save();
+            Engine reopened(engine.data_dir);
+            require(reopened.item(file_b)->at("grid") == engine.item(file_b)->at("grid"),
+                    "Native drop positions survive a fresh Engine load");
+            auto shortcut_id = engine.add_file(shortcut, grid_id);
+            engine.ensure_grid();
+            frame(*grid);
+            auto shortcut_cell = engine.item(shortcut_id)->at("grid");
+            auto shortcut_point = cell_point({shortcut_cell["column"], shortcut_cell["row"]});
+            auto shortcut_handler = shell_drop_target(shortcut, grid->hwnd);
+            DWORD native_effect = DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK;
+            require(SUCCEEDED(shortcut_handler->DragEnter(grid_data.Get(), MK_LBUTTON, shortcut_point,
+                                                          &native_effect)),
+                    "Program shortcut exposes its native Shell drop handler");
+            shortcut_handler->DragLeave();
+            auto unchanged = engine.item(file_a)->at("grid");
+            effect = DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK;
+            grid->drop_target->DragEnter(grid_data.Get(), MK_LBUTTON, shortcut_point, &effect);
+            require(effect == native_effect && engine.item(file_a)->at("grid") == unchanged,
+                    "Internal drag over a program shortcut preserves the native Shell effect");
+            grid->drop_target->DragLeave();
+        }
         engine.save();
     } catch (const std::exception &ex) {
         panel->export_preview(engine.data_dir / L"previews" / L"failure.png");
@@ -524,6 +759,7 @@ int Application::run_ui_tests() {
         write_log(engine.data_dir, ex.what());
     }
     Json report = {{"mode", "Own ImGui input queue + native HWND/D3D/Shell/file operations"},
+                   {"desktop_hosted", !no_desktop},
                    {"passed", result == 0},
                    {"checks", checks},
                    {"frames", rendered_frames.load()}};

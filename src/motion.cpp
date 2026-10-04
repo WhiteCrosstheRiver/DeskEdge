@@ -3,6 +3,50 @@
 #include <cmath>
 
 namespace deskedge {
+bool Application::region_available(const Window *source, RegionRect bounds, const Monitor &screen) {
+    for (auto &other : zones) {
+        if (other.get() == source || other->screen.name != screen.name)
+            continue;
+        if (auto zone = engine.zone(other->zone_id)) {
+            RegionRect occupied{zone->value("x", 0.f), zone->value("y", 0.f), zone->value("w", 316.f),
+                                zone->value("h", 196.f)};
+            if (region_conflict(bounds, occupied))
+                return false;
+        }
+    }
+    return true;
+}
+void Application::show_geometry_guide(Window &source, RegionRect bounds) {
+    if (geometry_guide && !IsWindow(geometry_guide->hwnd))
+        geometry_guide.reset();
+    if (!geometry_guide) {
+        geometry_guide = std::make_unique<Window>(*this, Kind::Guides);
+        geometry_guide->create(!no_desktop);
+    }
+    auto &guide = *geometry_guide;
+    // Keep the compositor surface near the region instead of allocating a whole-monitor overlay.
+    float left = std::max(0.f, bounds.x - WINDOW_GRID * 2);
+    float top = std::max(0.f, bounds.y - WINDOW_GRID * 2);
+    float width = std::min(source.screen.width() - left, bounds.x + bounds.w + WINDOW_GRID * 2 - left);
+    float height = std::min(source.screen.height() - top, bounds.y + bounds.h + WINDOW_GRID * 2 - top);
+    guide.guide_bounds = {bounds.x - left, bounds.y - top, bounds.w, bounds.h};
+    guide.placement_blocked = source.placement_blocked;
+    guide.place(left, top, width, height, source.screen);
+    if (!guide.visible()) {
+        guide.show();
+        SetWindowPos(guide.hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+    guide.invalidate();
+}
+std::optional<GridCell> Window::grid_at(POINT point) const {
+    if (kind != Kind::Zone || !app.engine.state["settings"].value("grid_mode", true) ||
+        !PtInRect(&grid_rect, point))
+        return std::nullopt;
+    return GridCell{
+        std::clamp(static_cast<int>((point.x - grid_rect.left) / (GRID_CELL_WIDTH * scale)), 0,
+                   grid_columns - 1),
+        std::max(0, static_cast<int>((point.y - grid_rect.top + grid_scroll) / (GRID_CELL_HEIGHT * scale)))};
+}
 bool Window::animations_enabled() const {
     if (app.self_test_ui && test_animations)
         return true;
@@ -12,7 +56,7 @@ bool Window::animations_enabled() const {
     SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0);
     return enabled && !(contrast.dwFlags & HCF_HIGHCONTRASTON) &&
            app.engine.state["settings"].value("animations", true) && !app.self_test_ui &&
-           !app.render_previews && kind != Kind::Draw;
+           !app.render_previews && kind != Kind::Draw && kind != Kind::Guides;
 }
 void Window::animate_opacity(float from, float to, float seconds) {
     double clock = static_cast<double>(GetTickCount64());
@@ -65,6 +109,8 @@ void Window::begin_geometry(POINT point, bool resize_gesture) {
     size_animating = false;
     geometry_capture = true;
     geometry_changed = false;
+    placement_blocked = false;
+    drag_scale = scale;
     moving = !resize_gesture;
     resizing = resize_gesture;
     drag_start = point;
@@ -96,8 +142,10 @@ void Window::update_geometry(POINT point) {
                 screen = m;
                 break;
             }
-        LONG drag_width = drag_bounds.right - drag_bounds.left,
-             drag_height = drag_bounds.bottom - drag_bounds.top;
+        LONG drag_width = static_cast<LONG>(
+                 std::round((drag_bounds.right - drag_bounds.left) * screen.scale / drag_scale)),
+             drag_height = static_cast<LONG>(
+                 std::round((drag_bounds.bottom - drag_bounds.top) * screen.scale / drag_scale));
         if (scale != screen.scale) {
             scale = screen.scale;
             theme();
@@ -109,6 +157,20 @@ void Window::update_geometry(POINT point) {
                        std::max(screen.work.top, screen.work.bottom - static_cast<LONG>(34 * scale)));
         bounds.right = bounds.left + drag_width;
         bounds.bottom = bounds.top + drag_height;
+    }
+    if (kind == Kind::Zone && app.engine.state["settings"].value("window_grid", true)) {
+        auto zone = app.engine.zone(zone_id);
+        bool collapsed = zone && zone->value("collapsed", false);
+        RegionRect logical{(bounds.left - screen.work.left) / scale, (bounds.top - screen.work.top) / scale,
+                           (bounds.right - bounds.left) / scale,
+                           collapsed ? zone->value("h", 196.f) : (bounds.bottom - bounds.top) / scale};
+        logical = snap_region(logical, screen.width(), screen.height(), resizing);
+        placement_blocked = !app.region_available(this, logical, screen);
+        bounds.left = screen.work.left + static_cast<LONG>(std::round(logical.x * scale));
+        bounds.top = screen.work.top + static_cast<LONG>(std::round(logical.y * scale));
+        bounds.right = bounds.left + static_cast<LONG>(std::round(logical.w * scale));
+        bounds.bottom = bounds.top + static_cast<LONG>(std::round((collapsed ? 34.f : logical.h) * scale));
+        app.show_geometry_guide(*this, logical);
     }
     RECT current{};
     GetWindowRect(hwnd, &current);
@@ -126,8 +188,12 @@ void Window::update_geometry(POINT point) {
 void Window::end_geometry(bool cancel) {
     if (!geometry_capture)
         return;
+    cancel |= placement_blocked;
     geometry_capture = false;
     moving = resizing = false;
+    placement_blocked = false;
+    if (app.geometry_guide)
+        app.geometry_guide->hide();
     if (GetCapture() == hwnd)
         ReleaseCapture();
     if (cancel) {

@@ -236,6 +236,7 @@ Application::~Application() {
     watches.clear();
     icons.reset();
     draw_windows.clear();
+    geometry_guide.reset();
     zones.clear();
     settings.reset();
     launcher.reset();
@@ -316,6 +317,15 @@ void Application::synchronize() {
               h = z.value("collapsed", false) ? 34.f : z.value("h", 196.f);
         float x = std::clamp(z.value("x", 24.f), 0.f, std::max(0.f, screen.width() - w)),
               y = std::clamp(z.value("y", 24.f), 0.f, std::max(0.f, screen.height() - 34));
+        if (engine.state["settings"].value("window_grid", true) && !window->geometry_capture) {
+            auto rect = snap_region({x, y, w, z.value("h", 196.f)}, screen.width(), screen.height());
+            x = rect.x;
+            y = rect.y;
+            w = rect.w;
+            z["h"] = rect.h;
+            if (!z.value("collapsed", false))
+                h = rect.h;
+        }
         z["x"] = x;
         z["y"] = y;
         z["w"] = w;
@@ -489,15 +499,22 @@ void Application::add_files(std::string z, std::string t, bool folder) {
 }
 void Application::drop(Window &window, const Json &payload, const std::vector<std::string> &files, POINT p) {
     if (window.kind == Kind::Zone) {
+        std::vector<std::string> moved;
         if ((payload.is_object() ? payload.value("type", "") : "") == "desktop") {
             if (payload.contains("ids") && payload["ids"].is_array())
                 for (auto &ident : payload["ids"])
-                    engine.move_zone(ident.get<std::string>(), window.zone_id);
+                    moved.push_back(ident.get<std::string>());
             else
-                engine.move_zone(payload.value("id", ""), window.zone_id);
+                moved.push_back(payload.value("id", ""));
         } else
             for (auto &path : files)
-                engine.add_file(wide(path), window.zone_id);
+                moved.push_back(engine.add_file(wide(path), window.zone_id));
+        if (auto cell = window.grid_at(p))
+            engine.place_grid(moved, window.zone_id, *cell, window.grid_columns,
+                              payload.is_object() ? payload.value("id", "") : "");
+        else
+            for (auto &ident : moved)
+                engine.move_zone(ident, window.zone_id);
     } else if (window.kind == Kind::Launcher) {
         std::string target = active_tab, before;
         for (auto &spot : window.hotspots)
@@ -524,7 +541,7 @@ void Application::show_settings() {
         settings->create();
     }
     auto m = monitor("", true);
-    settings->place((m.width() - 440) / 2, (m.height() - 500) / 2, 440, 500, m, true);
+    settings->place((m.width() - 440) / 2, (m.height() - 560) / 2, 440, 560, m, true);
     settings->show(true);
 }
 void Application::tray() {
@@ -895,6 +912,7 @@ int Application::run() {
             render(z.get());
         for (auto &w : draw_windows)
             render(w.get());
+        render(geometry_guide.get());
         perform_actions();
     }
     if (render_previews) {
@@ -993,6 +1011,10 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
                 test_ui = true;
                 demo = true;
                 no_desktop = true;
+            } else if (arg == L"--self-test-ui-native") {
+                test_ui = true;
+                demo = true;
+                no_desktop = false;
             } else if (arg == L"--write-marker" && i + 1 < count) {
                 std::ofstream marker(fs::path(args[++i]), std::ios::binary);
                 marker << "DeskEdge shortcut arguments preserved";

@@ -285,10 +285,13 @@ void Window::create(bool child) {
     DWORD style = desktop_child ? WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN : WS_POPUP;
     DWORD ex = ((app.demo && app.no_desktop && kind != Kind::Zone) ? WS_EX_APPWINDOW : WS_EX_TOOLWINDOW) |
                WS_EX_NOREDIRECTIONBITMAP;
+    if (kind == Kind::Guides)
+        ex = WS_EX_TOOLWINDOW | WS_EX_NOREDIRECTIONBITMAP | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
     std::wstring title = wide("DeskEdge · " + (kind == Kind::Panel      ? app.tr("桌沿", "Panel")
                                                : kind == Kind::Launcher ? app.tr("启动器", "Launcher")
                                                : kind == Kind::Settings ? app.tr("设置", "Settings")
                                                : kind == Kind::Draw     ? app.tr("绘制区域", "Draw zone")
+                                               : kind == Kind::Guides   ? "Grid guides"
                                                                         : "Zone " + zone_id));
     hwnd =
         CreateWindowExW(ex, L"DeskEdge.Window", title.c_str(), style, 0, 0, 100, 100,
@@ -338,12 +341,13 @@ void Window::create(bool child) {
         check(visual->SetClip(clip.Get()));
         check(composition_target->SetRoot(visual.Get()));
         check(app.composition->Commit());
-        if (!desktop_child && kind != Kind::Zone)
+        if (!desktop_child && kind != Kind::Zone && kind != Kind::Guides)
             blur(hwnd, app.dark);
     }
-    drop_target = create_drop_target(*this);
-    if (kind != Kind::Draw)
+    if (kind != Kind::Draw && kind != Kind::Guides) {
+        drop_target = create_drop_target(*this);
         RegisterDragDrop(hwnd, drop_target);
+    }
     resize(100, 100);
 }
 void Window::resize(int w, int h) {
@@ -379,7 +383,7 @@ void Window::update_surface() {
     clip->SetTop(0.f);
     clip->SetRight(static_cast<float>(w));
     clip->SetBottom(static_cast<float>(h));
-    float radius = kind == Kind::Draw ? 0.f : 8.f * scale;
+    float radius = kind == Kind::Draw || kind == Kind::Guides ? 0.f : 12.f * scale;
     clip->SetTopLeftRadiusX(radius);
     clip->SetTopLeftRadiusY(radius);
     clip->SetTopRightRadiusX(radius);
@@ -409,6 +413,7 @@ void Window::theme() {
     s.FrameRounding = 5;
     s.PopupRounding = 7;
     s.WindowBorderSize = 1;
+    s.FrameBorderSize = 1;
     s.ScrollbarSize = 7;
     s.GrabRounding = 4;
     s.Colors[ImGuiCol_Text] = app.dark ? ImVec4(.95f, .95f, .95f, 1) : ImVec4(.106f, .106f, .106f, 1);
@@ -419,14 +424,14 @@ void Window::theme() {
     s.Colors[ImGuiCol_Button] = ImVec4(0, 0, 0, 0);
     s.Colors[ImGuiCol_ButtonHovered] = app.dark ? ImVec4(1, 1, 1, .10f) : ImVec4(0, 0, 0, .06f);
     s.Colors[ImGuiCol_ButtonActive] = app.dark ? ImVec4(1, 1, 1, .16f) : ImVec4(0, 0, 0, .10f);
-    s.Colors[ImGuiCol_FrameBg] = app.dark ? ImVec4(1, 1, 1, .07f) : ImVec4(1, 1, 1, .82f);
-    s.Colors[ImGuiCol_FrameBgHovered] = app.dark ? ImVec4(1, 1, 1, .12f) : ImVec4(1, 1, 1, .94f);
+    s.Colors[ImGuiCol_FrameBg] = app.dark ? ImVec4(1, 1, 1, .07f) : ImVec4(.92f, .94f, .965f, .75f);
+    s.Colors[ImGuiCol_FrameBgHovered] = app.dark ? ImVec4(1, 1, 1, .12f) : ImVec4(.91f, .93f, .96f, .85f);
     s.Colors[ImGuiCol_FrameBgActive] = s.Colors[ImGuiCol_FrameBgHovered];
     s.Colors[ImGuiCol_CheckMark] = app.dark ? ImVec4(.55f, .74f, .95f, 1) : ImVec4(.078f, .416f, .71f, 1);
     s.Colors[ImGuiCol_Header] = s.Colors[ImGuiCol_ButtonHovered];
     s.ScaleAllSizes(scale);
     s.FontScaleDpi = scale;
-    if (hwnd && !desktop_child && kind != Kind::Zone)
+    if (hwnd && !desktop_child && kind != Kind::Zone && kind != Kind::Guides)
         blur(hwnd, app.dark);
     invalidate();
 }
@@ -461,7 +466,10 @@ void Window::place(float x, float y, float w, float h, Monitor m, bool activate)
     KillTimer(hwnd, 5);
     if (desktop_child)
         ScreenToClient(GetParent(hwnd), &p);
-    auto after = desktop_child ? HWND_TOP : kind == Kind::Zone ? HWND_BOTTOM : HWND_TOPMOST;
+    auto after = desktop_child          ? HWND_TOP
+                 : kind == Kind::Zone   ? HWND_BOTTOM
+                 : kind == Kind::Guides ? HWND_TOP
+                                        : HWND_TOPMOST;
     SetWindowPos(hwnd, after, p.x, p.y, static_cast<int>(w * m.scale), static_cast<int>(h * m.scale),
                  activate ? 0 : SWP_NOACTIVATE);
     resize(static_cast<int>(w * m.scale), static_cast<int>(h * m.scale));
@@ -514,8 +522,17 @@ void Window::invalidate() {
         PostMessageW(app.controller, MSG_WAKE, 0, 0);
 }
 void Window::render() {
-    if (!context || !visible())
+    if (!context || !visible() || app.render_depth != 0)
         return;
+    struct RenderScope {
+        int &depth;
+        explicit RenderScope(int &value) : depth(value) {
+            ++depth;
+        }
+        ~RenderScope() {
+            --depth;
+        }
+    } render_scope(app.render_depth);
     update_surface();
     if (!target)
         return;
@@ -614,6 +631,12 @@ LRESULT CALLBACK Window::procedure(HWND handle, UINT message, WPARAM wp, LPARAM 
     }
     if (!w)
         return DefWindowProcW(handle, message, wp, lp);
+    if (w->kind == Kind::Guides) {
+        if (message == WM_NCHITTEST)
+            return HTTRANSPARENT;
+        if (message == WM_MOUSEACTIVATE)
+            return MA_NOACTIVATE;
+    }
     try {
         if ((w->kind == Kind::Zone || w->kind == Kind::Launcher || w->kind == Kind::Settings) &&
             !w->app.modal && !w->drag_in_progress) {
@@ -693,6 +716,9 @@ LRESULT CALLBACK Window::procedure(HWND handle, UINT message, WPARAM wp, LPARAM 
             BeginPaint(handle, &paint);
             EndPaint(handle, &paint);
             w->dirty = true;
+            // OLE owns a nested message loop during drag/drop; the outer renderer cannot run then.
+            if (w->drop_hover && w->app.render_depth == 0)
+                w->render();
             return 0;
         }
         case WM_SIZE:
@@ -791,133 +817,6 @@ IconCache::~IconCache() {
     if (worker.joinable())
         worker.join();
 }
-static std::vector<uint8_t> icon_pixels(const std::string &path, std::string &name) {
-    SHFILEINFOW info{};
-    SHGetFileInfoW(wide(path).c_str(), 0, &info, sizeof(info),
-                   SHGFI_ICON | SHGFI_LARGEICON | SHGFI_DISPLAYNAME);
-    name = utf8(info.szDisplayName);
-    if (!info.hIcon)
-        return {};
-    HDC dc = CreateCompatibleDC(nullptr);
-    BITMAPINFO bmp{};
-    bmp.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmp.bmiHeader.biWidth = 32;
-    bmp.bmiHeader.biHeight = -32;
-    bmp.bmiHeader.biPlanes = 1;
-    bmp.bmiHeader.biBitCount = 32;
-    void *pixels = nullptr;
-    HBITMAP bitmap = CreateDIBSection(dc, &bmp, DIB_RGB_COLORS, &pixels, nullptr, 0);
-    if (!bitmap) {
-        DeleteDC(dc);
-        DestroyIcon(info.hIcon);
-        return {};
-    }
-    auto old = SelectObject(dc, bitmap);
-    memset(pixels, 0, 32 * 32 * 4);
-    DrawIconEx(dc, 0, 0, info.hIcon, 32, 32, 0, nullptr, DI_NORMAL);
-    auto raw = static_cast<uint8_t *>(pixels);
-    std::vector<uint8_t> output(32 * 32 * 4);
-    bool has_alpha = false;
-    for (size_t n = 0; n < output.size(); n += 4) {
-        output[n] = raw[n + 2];
-        output[n + 1] = raw[n + 1];
-        output[n + 2] = raw[n];
-        output[n + 3] = raw[n + 3];
-        has_alpha |= raw[n + 3] > 0;
-    }
-    if (!has_alpha) {
-        for (size_t n = 0; n < output.size(); n += 4)
-            output[n + 3] = (output[n] || output[n + 1] || output[n + 2]) ? 255 : 0;
-    } else
-        for (size_t n = 0; n < output.size(); n += 4) {
-            auto alpha = output[n + 3];
-            if (alpha && alpha < 255)
-                for (int c = 0; c < 3; c++)
-                    output[n + c] = static_cast<uint8_t>(std::min(255, output[n + c] * 255 / alpha));
-        }
-    SelectObject(dc, old);
-    DeleteObject(bitmap);
-    DeleteDC(dc);
-    DestroyIcon(info.hIcon);
-    return output;
-}
-void IconCache::run() {
-    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    for (;;) {
-        std::string path;
-        {
-            std::unique_lock lock(mutex);
-            condition.wait(lock, [this] { return stopping || !requests.empty(); });
-            if (stopping)
-                break;
-            path = std::move(requests.front());
-            requests.pop_front();
-        }
-        std::string name;
-        auto pixels = icon_pixels(path, name);
-        {
-            std::lock_guard lock(mutex);
-            if (auto it = entries.find(path); it != entries.end()) {
-                it->second.pixels = std::move(pixels);
-                it->second.display_name = std::move(name);
-                it->second.ready = true;
-            }
-        }
-        PostMessageW(notify, MSG_ICONS, 0, 0);
-    }
-    CoUninitialize();
-}
-ID3D11ShaderResourceView *IconCache::get(const std::string &path) {
-    std::lock_guard lock(mutex);
-    auto &e = entries[path];
-    e.touched = ++sequence;
-    if (!e.queued) {
-        e.queued = true;
-        requests.push_back(path);
-        condition.notify_one();
-    }
-    if (e.ready && !e.view && !e.pixels.empty()) {
-        D3D11_TEXTURE2D_DESC desc{};
-        desc.Width = desc.Height = 32;
-        desc.MipLevels = desc.ArraySize = 1;
-        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        desc.SampleDesc.Count = 1;
-        desc.Usage = D3D11_USAGE_IMMUTABLE;
-        desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-        D3D11_SUBRESOURCE_DATA data{e.pixels.data(), 32 * 4, 0};
-        ComPtr<ID3D11Texture2D> tex;
-        if (SUCCEEDED(device->CreateTexture2D(&desc, &data, &tex)))
-            device->CreateShaderResourceView(tex.Get(), nullptr, &e.view);
-        e.pixels.clear();
-        e.pixels.shrink_to_fit();
-    }
-    auto result = e.view.Get();
-    if (entries.size() > 512) {
-        auto oldest = entries.end();
-        for (auto it = entries.begin(); it != entries.end(); ++it)
-            if (it->first != path && it->second.ready &&
-                (oldest == entries.end() || it->second.touched < oldest->second.touched))
-                oldest = it;
-        if (oldest != entries.end())
-            entries.erase(oldest);
-    }
-    return result;
-}
-std::string IconCache::display_name(const std::string &path, const std::string &fallback) {
-    std::lock_guard lock(mutex);
-    auto item = entries.find(path);
-    return item != entries.end() && !item->second.display_name.empty() ? item->second.display_name : fallback;
-}
-size_t IconCache::size() {
-    std::lock_guard lock(mutex);
-    return entries.size();
-}
-void IconCache::clear() {
-    std::lock_guard lock(mutex);
-    entries.clear();
-    requests.clear();
-}
-
 DirectoryWatch::DirectoryWatch(fs::path root, HWND target) {
     stop_event = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     directory =

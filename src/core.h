@@ -28,6 +28,23 @@ struct Match {
     std::string id, tab;
     int score = 0;
 };
+inline constexpr float GRID_CELL_WIDTH = 72.f, GRID_CELL_HEIGHT = 83.f;
+inline constexpr float WINDOW_GRID = 24.f;
+struct RegionRect {
+    float x = 0, y = 0, w = 144, h = 96;
+};
+float snap_coordinate(float value);
+RegionRect snap_region(RegionRect rect, float area_width, float area_height, bool resize = true);
+bool region_conflict(RegionRect a, RegionRect b, float gap = WINDOW_GRID);
+struct GridCell {
+    int column = 0, row = 0;
+    bool operator==(const GridCell &) const = default;
+};
+struct GridItem {
+    std::string id;
+    GridCell cell;
+};
+int grid_columns(float width);
 
 class Engine {
   public:
@@ -52,6 +69,12 @@ class Engine {
     void sync(const std::vector<fs::path> &roots, const fs::path &archive_root);
     void rename_path(const fs::path &old_path, const fs::path &new_path);
     void move_zone(std::string item_id, std::string zone_id);
+    std::vector<GridItem> zone_grid(std::string_view zone_id, int columns) const;
+    void ensure_grid();
+    void ensure_zone_grid();
+    void place_grid(const std::vector<std::string> &ids, std::string zone_id, GridCell target, int columns,
+                    std::string anchor = "");
+    void arrange_grid(std::string zone_id);
     std::string add_to_tab(std::string tab_id, const fs::path &path, std::string label = "");
     void move_launch(std::string item_id, std::string tab_id, std::string before_id = "");
     std::vector<std::string> sorted(std::string tab_id) const;

@@ -1,12 +1,12 @@
 {
-  "frames": 40,
+  "frames": 110,
   "icon_cache": 21,
-  "working_set_bytes": 67997696,
+  "working_set_bytes": 67334144,
   "zones": 4,
   "desktop_hosted": true,
   "render_backend": "DirectComposition / BGRA premultiplied flip swapchain",
-  "animations_enabled": true,
-  "pid": 34628,
+  "animations_enabled": false,
+  "pid": 35028,
   "native_windows": [
     {
       "zone": "projects",

@@ -76,8 +76,9 @@ void logo(Window &w, ImVec2 p, float size) {
 }
 void icon(Window &w, std::string path, ImVec2 p, float size) {
     auto draw = ImGui::GetWindowDrawList();
-    auto tex = w.app.icons->get(path);
-    float s = u(w, size);
+    float s = std::round(u(w, size));
+    p = {std::round(p.x), std::round(p.y)};
+    auto tex = w.app.icons->get(path, static_cast<int>(s));
     if (tex)
         draw->AddImage(ImTextureRef(reinterpret_cast<ImTextureID>(tex)), p, {p.x + s, p.y + s});
     else {
@@ -309,7 +310,8 @@ void zone_background(Window &w) {
          std::vector<std::pair<UINT, std::string>>{{0x8001, a.tr("添加文件引用", "Add file references")},
                                                    {0x8002, a.tr("重命名区域", "Rename zone")},
                                                    {0x8003, a.tr("切换临时区域", "Toggle temporary zone")},
-                                                   {0x8004, a.tr("移除区域", "Remove zone")}})
+                                                   {0x8004, a.tr("移除区域", "Remove zone")},
+                                                   {0x8005, a.tr("重新整理图标", "Arrange icons")}})
         AppendMenuW(extra, MF_STRING, entry.first, wide(entry.second).c_str());
     std::unordered_set<std::string> before;
     for (auto &item : a.engine.state["items"])
@@ -336,6 +338,8 @@ void zone_background(Window &w) {
         (*zone)["temporary"] = !zone->value("temporary", false);
     } else if (command == 0x8004)
         a.engine.remove_zone(ident);
+    else if (command == 0x8005)
+        a.engine.arrange_grid(ident);
     a.engine.sync(a.roots, a.archive_root);
     if (a.engine.zone(ident))
         for (auto &item : a.engine.state["items"])
@@ -358,10 +362,7 @@ bool tile(Window &w, const Json &item, bool launch, float width = 72, float heig
         if (ImGui::IsItemClicked(0)) {
             auto &io = ImGui::GetIO();
             if (io.KeyShift && !w.selection_anchor.empty()) {
-                std::vector<std::string> order;
-                for (auto &f : w.app.engine.state["items"])
-                    if (f["zone"] == w.zone_id)
-                        order.push_back(f["id"]);
+                std::vector<std::string> order = w.grid_order;
                 auto begin = std::find(order.begin(), order.end(), w.selection_anchor),
                      end = std::find(order.begin(), order.end(), ident);
                 if (begin != order.end() && end != order.end()) {
@@ -395,21 +396,23 @@ bool tile(Window &w, const Json &item, bool launch, float width = 72, float heig
                                    static_cast<LONG>(p.x + size.x), static_cast<LONG>(p.y + size.y)},
                                   "",
                                   "",
-                                  item["path"]});
+                                  item["path"],
+                                  item.value("folder", false)});
     }
     auto draw = ImGui::GetWindowDrawList();
     if (selected || hovered || active) {
-        draw->AddRectFilled(p, {p.x + size.x, p.y + size.y},
-                            color(w, selected ? 0x73A6DC : 0x8E9FAF, selected ? 65 : 28), u(w, 5));
+        ImVec2 start{p.x + u(w, 3), p.y + u(w, 2)}, end{p.x + size.x - u(w, 3), p.y + size.y - u(w, 4)};
+        draw->AddRectFilled(start, end, color(w, selected ? 0x619CE1 : 0x64748B, selected ? 30 : 15),
+                            u(w, 7));
         if (selected)
-            draw->AddRect(p, {p.x + size.x, p.y + size.y}, color(w, 0x5995D3, 180), u(w, 5));
+            draw->AddRect(start, end, color(w, 0x488BDD, 100), u(w, 7));
     }
     if (dim)
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, .34f);
-    float icon_size = compact ? 32.f : launch ? 36.f : 34.f;
-    icon(w, item["path"], {p.x + (size.x - u(w, icon_size)) / 2, p.y + u(w, 4)}, icon_size);
+    float icon_size = compact ? 32.f : launch ? 36.f : 40.f;
+    icon(w, item["path"], {p.x + (size.x - u(w, icon_size)) / 2, p.y + u(w, compact ? 4.f : 8.f)}, icon_size);
     if (w.file_rename == ident) {
-        ImGui::SetCursorScreenPos({p.x + u(w, 2), p.y + u(w, 41)});
+        ImGui::SetCursorScreenPos({p.x + u(w, 2), p.y + u(w, 52)});
         ImGui::SetNextItemWidth(size.x - u(w, 4));
         if (w.file_rename_focus) {
             ImGui::SetKeyboardFocusHere();
@@ -474,8 +477,8 @@ bool tile(Window &w, const Json &item, bool launch, float width = 72, float heig
                   launch ? item.value("name", "")
                          : w.app.icons->display_name(item["path"], item.value("name", "")),
                   {p.x + u(w, 3), p.y + u(w, compact  ? 40.f
-                                             : launch ? 44.f
-                                                      : 42.f)},
+                                             : launch ? 48.f
+                                                      : 52.f)},
                   size.x - u(w, 6), dim, compact);
     if (launch && !compact) {
         std::string meta = item.value("uses", 0) > 0
@@ -510,6 +513,7 @@ bool tile(Window &w, const Json &item, bool launch, float width = 72, float heig
 void zone_ui(Window &w) {
     auto &a = w.app;
     auto z = a.engine.zone(w.zone_id);
+    w.grid_rect = {};
     if (!z)
         return;
     auto ident = w.zone_id;
@@ -565,9 +569,12 @@ void zone_ui(Window &w) {
     }
     auto draw = ImGui::GetWindowDrawList();
     float ww = static_cast<float>(w.width), hh = static_cast<float>(w.height);
-    draw->AddRectFilled({0, 0}, {ww, u(w, 32)}, color(w, a.dark ? 0xFFFFFF : 0xFFFFFF, a.dark ? 10 : 36),
-                        u(w, 8), ImDrawFlags_RoundCornersTop);
-    draw->AddCircleFilled({u(w, 14), u(w, 16)}, u(w, 3), color(w, z->value("color", 0x649CDA)));
+    draw->AddRectFilled({0, 0}, {ww, u(w, 32)}, color(w, a.dark ? 0xFFFFFF : 0xE7EAF0, a.dark ? 9 : 55),
+                        u(w, 12), ImDrawFlags_RoundCornersTop);
+    draw->AddLine({u(w, 12), u(w, 32)}, {ww - u(w, 12), u(w, 32)},
+                  color(w, a.dark ? 0xFFFFFF : 0x596579, 18));
+    draw->AddRectFilled({u(w, 12), u(w, 13)}, {u(w, 18), u(w, 19)}, color(w, z->value("color", 0x649CDA)),
+                        u(w, 2));
     size_t count = 0;
     std::vector<std::string> items;
     for (auto &i : a.engine.state["items"])
@@ -579,7 +586,7 @@ void zone_ui(Window &w) {
     if (!a.query.empty())
         for (auto &m : a.engine.search(a.query))
             matches.insert(m.id);
-    ImGui::SetCursorPos({u(w, 23), u(w, 5)});
+    ImGui::SetCursorPos({u(w, 26), u(w, 5)});
     if (w.rename_id == ident) {
         ImGui::SetNextItemWidth(ww - u(w, 91));
         if (w.focus_search) {
@@ -623,38 +630,86 @@ void zone_ui(Window &w) {
     hint(a.tr("折叠 / 展开", "Collapse / expand"));
     if (z->value("collapsed", false))
         return;
-    ImGui::SetCursorPos({u(w, 9), u(w, 39)});
-    ImGui::BeginChild("files", {ww - u(w, 18), hh - u(w, 48)}, ImGuiChildFlags_None,
+    ImGui::SetCursorPos({u(w, 12), u(w, 40)});
+    ImGui::BeginChild("files", {ww - u(w, 24), hh - u(w, 50)}, ImGuiChildFlags_None,
                       ImGuiWindowFlags_NoBackground);
-    int columns = std::max(1, static_cast<int>(ImGui::GetContentRegionAvail().x / u(w, 72)));
-    int rows = (static_cast<int>(items.size()) + columns - 1) / columns;
-    ImGuiListClipper clipper;
-    clipper.Begin(rows, u(w, 83));
-    if (!w.file_rename.empty()) {
-        auto rename = std::find(items.begin(), items.end(), w.file_rename);
-        if (rename != items.end())
-            clipper.IncludeItemByIndex(static_cast<int>(rename - items.begin()) / columns);
+    int columns = deskedge::grid_columns(ww / w.scale);
+    w.grid_columns = columns;
+    w.grid_scroll = ImGui::GetScrollY();
+    auto viewport = ImGui::GetWindowPos();
+    auto extent = ImGui::GetWindowSize();
+    float grid_inset = std::max(0.f, (extent.x - columns * u(w, GRID_CELL_WIDTH)) / 2);
+    ImGui::SetCursorPosX(grid_inset);
+    viewport.x += grid_inset;
+    w.grid_rect = {static_cast<LONG>(viewport.x), static_cast<LONG>(viewport.y),
+                   static_cast<LONG>(viewport.x + columns * u(w, GRID_CELL_WIDTH)),
+                   static_cast<LONG>(viewport.y + extent.y)};
+    bool aligned = a.engine.state["settings"].value("grid_mode", true);
+    auto layout = a.engine.zone_grid(ident, columns);
+    if (!aligned)
+        for (size_t i = 0; i < layout.size(); ++i)
+            layout[i].cell = {static_cast<int>(i) % columns, static_cast<int>(i) / columns};
+    std::sort(layout.begin(), layout.end(), [=](auto &left, auto &right) {
+        return left.cell.row * columns + left.cell.column < right.cell.row * columns + right.cell.column;
+    });
+    w.grid_order.clear();
+    std::unordered_map<int, std::string> occupied;
+    int rows = std::max(1, static_cast<int>(extent.y / u(w, GRID_CELL_HEIGHT)));
+    for (auto &placed : layout) {
+        w.grid_order.push_back(placed.id);
+        occupied[placed.cell.row * columns + placed.cell.column] = placed.id;
+        rows = std::max(rows, placed.cell.row + 1);
     }
+    auto origin = ImGui::GetCursorScreenPos();
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+    ImGuiListClipper clipper;
+    clipper.Begin(rows, u(w, GRID_CELL_HEIGHT));
+    if (!w.file_rename.empty())
+        for (auto &placed : layout)
+            if (placed.id == w.file_rename)
+                clipper.IncludeItemByIndex(placed.cell.row);
     while (clipper.Step())
-        for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
-            for (int col = 0; col < columns; col++) {
-                int n = row * columns + col;
-                if (n >= static_cast<int>(items.size()))
-                    break;
-                if (col)
-                    ImGui::SameLine(0, 0);
-                auto ptr = a.engine.item(items[n]);
-                if (w.file_rename == items[n] && w.file_rename_focus)
+        for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row)
+            for (int col = 0; col < columns; ++col) {
+                ImVec2 position{origin.x + col * u(w, GRID_CELL_WIDTH),
+                                origin.y + row * u(w, GRID_CELL_HEIGHT)};
+                ImGui::SetCursorScreenPos(position);
+                if (w.drop_hover && aligned)
+                    ImGui::GetWindowDrawList()->AddCircleFilled({position.x + 1, position.y + 1}, 1.f,
+                                                                color(w, 0x5995D3, 70));
+                auto found = occupied.find(row * columns + col);
+                auto item = found == occupied.end() ? nullptr : a.engine.item(found->second);
+                if (!item) {
+                    ImGui::Dummy({u(w, GRID_CELL_WIDTH), u(w, GRID_CELL_HEIGHT)});
+                    continue;
+                }
+                if (w.file_rename == found->second && w.file_rename_focus)
                     ImGui::SetScrollHereY(.5f);
-                if (ptr && tile(w, *ptr, false, 72, 83, !a.query.empty() && !matches.contains(items[n]),
-                                a.focus_id == items[n])) {
-                    auto key = items[n];
+                if (tile(w, *item, false, GRID_CELL_WIDTH, GRID_CELL_HEIGHT,
+                         !a.query.empty() && !matches.contains(found->second), a.focus_id == found->second)) {
+                    auto key = found->second;
                     a.defer([&a, key] { a.focus(key); });
                 }
             }
+    ImGui::PopStyleVar();
+    if (w.drop_hover && aligned)
+        if (auto target = w.grid_at(w.drop_point)) {
+            ImVec2 position{origin.x + target->column * u(w, GRID_CELL_WIDTH),
+                            origin.y + target->row * u(w, GRID_CELL_HEIGHT)};
+            auto preview = ImGui::GetWindowDrawList();
+            preview->AddRectFilled(
+                {position.x + 2, position.y + 2},
+                {position.x + u(w, GRID_CELL_WIDTH) - 2, position.y + u(w, GRID_CELL_HEIGHT) - 2},
+                color(w, 0x488BDD, 18), u(w, 7));
+            preview->AddRect(
+                {position.x + 2, position.y + 2},
+                {position.x + u(w, GRID_CELL_WIDTH) - 2, position.y + u(w, GRID_CELL_HEIGHT) - 2},
+                color(w, 0x488BDD, 160), u(w, 7), 0, u(w, 1));
         }
-    if (items.empty())
+    if (items.empty()) {
+        ImGui::SetCursorScreenPos({origin.x + u(w, 6), origin.y + u(w, 8)});
         label(w, a.tr("拖入文件、文件夹或快捷方式", "Drop files, folders or shortcuts"), true, 11);
+    }
     if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered() && ImGui::IsMouseClicked(0)) {
         w.selecting = true;
         w.selection_start = ImGui::GetMousePos();
@@ -1232,6 +1287,8 @@ void settings_ui(Window &w) {
     ImGui::Separator();
     auto &s = a.engine.state["settings"];
     int opacity = s.value("glass_opacity", 55);
+    bool card_surface = s.value("card_style", true);
+    ImGui::BeginDisabled(card_surface);
     ImGui::SetNextItemWidth(u(w, 165));
     if (ImGui::SliderInt(a.tr("玻璃浓度", "Glass tint").c_str(), &opacity, 20, 90, "%d%%")) {
         s["glass_opacity"] = opacity;
@@ -1244,9 +1301,12 @@ void settings_ui(Window &w) {
     }
     if (ImGui::IsItemDeactivatedAfterEdit())
         a.defer([] {});
+    ImGui::EndDisabled();
     label(w,
-          a.tr("降低浓度可透出更多背景，文字和图标保持清晰。",
-               "Lower tint reveals more background; text stays opaque."),
+          card_surface
+              ? a.tr("关闭卡片材质后，可调整玻璃浓度。", "Turn off card surfaces to adjust glass tint.")
+              : a.tr("降低浓度可透出更多背景，文字和图标保持清晰。",
+                     "Lower tint reveals more background; text stays opaque."),
           true, 11);
     int days = s.value("stale_days", 7);
     ImGui::SetNextItemWidth(u(w, 130));
@@ -1258,6 +1318,9 @@ void settings_ui(Window &w) {
         true, 11);
     for (auto [key, zh, en] : std::vector<std::tuple<std::string, const char *, const char *>>{
              {"pinned", "固定右侧边栏", "Keep panel pinned"},
+             {"grid_mode", "图标对齐网格，保留空位", "Align icons to grid; keep empty cells"},
+             {"window_grid", "区域窗口吸附网格", "Snap regions to the desktop grid"},
+             {"card_style", "简洁卡片材质", "Clean card surfaces"},
              {"animations", "柔和的开合动画", "Animate opening and closing"},
              {"replace_icons", "用桌面区域显示原有桌面文件", "Display desktop files in zones"},
              {"middle_click", "鼠标中键呼出启动器", "Open launcher with middle mouse button"},
@@ -1268,6 +1331,8 @@ void settings_ui(Window &w) {
                 if (key == "startup")
                     startup(value);
                 a.engine.state["settings"][key] = value;
+                if (key == "window_grid" && value)
+                    a.engine.state["settings"]["window_grid_migrated"] = false;
             });
     }
     auto list = monitors();
@@ -1297,7 +1362,7 @@ void settings_ui(Window &w) {
             a.icons->clear();
         });
     ImGui::Separator();
-    label(w, "DeskEdge · 桌沿  1.1.0", false, 13);
+    label(w, "DeskEdge · 桌沿  1.3.0", false, 13);
     label(w, a.tr("为专注研究的桌面留出秩序。", "A calmer desktop for focused work."), true, 11);
     label(w, "C++20 · Win32 · DirectX 11", true, 10);
     label(w,
@@ -1306,6 +1371,37 @@ void settings_ui(Window &w) {
           true, 11);
     if (ImGui::IsKeyPressed(ImGuiKey_Escape))
         w.hide();
+}
+void region_preview(Window &w, RegionRect rect, bool blocked) {
+    auto draw = ImGui::GetWindowDrawList();
+    int accent = blocked ? 0xC95252 : 0x488BDD;
+    float step = u(w, WINDOW_GRID);
+    ImVec2 start{u(w, rect.x), u(w, rect.y)}, end{u(w, rect.x + rect.w), u(w, rect.y + rect.h)};
+    float left = std::max(0.f, start.x - step * 2), top = std::max(0.f, start.y - step * 2);
+    for (float y = std::floor(top / step) * step; y <= std::min(float(w.height), end.y + step * 2); y += step)
+        for (float x = std::floor(left / step) * step; x <= std::min(float(w.width), end.x + step * 2);
+             x += step)
+            draw->AddCircleFilled({x, y}, 1.f, color(w, accent, 55), 4);
+    for (float x : {start.x, end.x})
+        draw->AddLine({x, 0}, {x, float(w.height)}, color(w, accent, 38));
+    for (float y : {start.y, end.y})
+        draw->AddLine({0, y}, {float(w.width), y}, color(w, accent, 38));
+    draw->AddRectFilled(start, end, color(w, accent, 12), u(w, 12));
+    draw->AddRect(start, end, color(w, accent, 185), u(w, 12), 0, u(w, 1.5f));
+    font(w, 11);
+    std::string caption = blocked
+                              ? w.app.tr("位置已占用 · 请选择空位", "Space occupied · choose an empty spot")
+                              : std::to_string(int(rect.w)) + " × " + std::to_string(int(rect.h)) + "  ·  " +
+                                    std::to_string(int(rect.w / WINDOW_GRID)) + " × " +
+                                    std::to_string(int(rect.h / WINDOW_GRID)) + w.app.tr(" 格", " cells");
+    auto size = ImGui::CalcTextSize(caption.c_str());
+    ImVec2 label_at{std::clamp(start.x, u(w, 12), std::max(u(w, 12), w.width - size.x - u(w, 28))),
+                    std::min(end.y + u(w, 12), w.height - size.y - u(w, 24))};
+    draw->AddRectFilled({label_at.x - u(w, 10), label_at.y - u(w, 6)},
+                        {label_at.x + size.x + u(w, 10), label_at.y + size.y + u(w, 6)},
+                        color(w, w.app.dark ? 0x252A32 : 0xF9FAFC, 250), u(w, 7));
+    draw->AddText(label_at, color(w, accent), caption.c_str());
+    ImGui::PopFont();
 }
 void draw_zone(Window &w) {
     auto &a = w.app;
@@ -1328,15 +1424,18 @@ void draw_zone(Window &w) {
     if (w.moving) {
         float x = std::min(w.initial_x, io.MousePos.x), y = std::min(w.initial_y, io.MousePos.y),
               width = std::abs(io.MousePos.x - w.initial_x), height = std::abs(io.MousePos.y - w.initial_y);
-        d->AddRectFilled({x, y}, {x + width, y + height}, color(w, 0xFFFFFF, 110), u(w, 8));
-        d->AddRect({x, y}, {x + width, y + height}, color(w, 0x146AB5), u(w, 8), 0, u(w, 2));
+        bool aligned = a.engine.state["settings"].value("window_grid", true);
+        RegionRect draft{x / w.scale, y / w.scale, width / w.scale, height / w.scale};
+        if (aligned)
+            draft = snap_region(draft, w.screen.width(), w.screen.height());
+        bool blocked = aligned && !a.region_available(nullptr, draft, w.screen);
+        region_preview(w, draft, blocked);
         if (ImGui::IsMouseReleased(0)) {
             w.moving = false;
-            if (width >= u(w, 140) && height >= u(w, 80)) {
+            if (width >= u(w, 140) && height >= u(w, 80) && !blocked) {
                 auto screen = w.screen;
-                a.defer([&a, x, y, width, height, screen] {
-                    auto ident = a.engine.add_zone(x / screen.scale, y / screen.scale, width / screen.scale,
-                                                   height / screen.scale, screen.name);
+                a.defer([&a, draft, screen] {
+                    auto ident = a.engine.add_zone(draft.x, draft.y, draft.w, draft.h, screen.name);
                     a.cancel_draw();
                     for (auto &zone : a.zones)
                         if (zone->zone_id == ident) {
@@ -1356,17 +1455,18 @@ void draw_zone(Window &w) {
 void draw_ui(Window &w) {
     ImGui::SetNextWindowPos({0, 0});
     ImGui::SetNextWindowSize({static_cast<float>(w.width), static_cast<float>(w.height)});
-    bool transparent = w.kind == Kind::Zone || w.kind == Kind::Draw;
+    bool transparent = w.kind == Kind::Zone || w.kind == Kind::Draw || w.kind == Kind::Guides;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, transparent ? ImVec2(0, 0) : ImVec2(u(w, 12), u(w, 10)));
     ImGui::Begin("DeskEdge", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
                      ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollWithMouse |
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground);
-    if (w.kind != Kind::Draw) {
+    if (w.kind != Kind::Draw && w.kind != Kind::Guides) {
         auto draw = ImGui::GetWindowDrawList();
         ImVec2 end{static_cast<float>(w.width), static_cast<float>(w.height)};
-        float radius = u(w, 8);
-        if (w.kind == Kind::Zone && w.app.glass) {
+        float radius = u(w, 12);
+        bool card = w.app.engine.state["settings"].value("card_style", true);
+        if (!card && w.kind == Kind::Zone && w.app.glass) {
             if (auto texture = w.app.glass->wallpaper(w.screen)) {
                 RECT bounds{};
                 GetWindowRect(w.hwnd, &bounds);
@@ -1382,9 +1482,10 @@ void draw_ui(Window &w) {
         }
         int tint = std::clamp(w.app.engine.state["settings"].value("glass_opacity", 55), 20, 90);
         // Only the material receives opacity; glyphs, icons and focus indicators remain fully opaque.
-        int alpha = static_cast<int>(255 * (w.app.dark ? .18f + tint * .008f : .12f + tint * .008f));
+        int alpha =
+            card ? 247 : static_cast<int>(255 * (w.app.dark ? .18f + tint * .008f : .12f + tint * .008f));
         draw->AddRectFilled({0, 0}, end, color(w, w.app.dark ? 0x20242C : 0xF7F9FC, alpha), radius);
-        if (w.app.glass) {
+        if (!card && w.app.glass) {
             if (auto grain = w.app.glass->grain()) {
                 draw->PushClipRect({radius, radius}, {end.x - radius, end.y - radius}, true);
                 for (float y = 0; y < end.y; y += 128)
@@ -1394,10 +1495,7 @@ void draw_ui(Window &w) {
             }
         }
         draw->AddRect({.5f, .5f}, {end.x - .5f, end.y - .5f},
-                      color(w, w.app.dark ? 0xD6E2F4 : 0xFFFFFF, w.app.dark ? 48 : 165), radius);
-        draw->AddRect({1.5f, 1.5f}, {end.x - 1.5f, end.y - 1.5f}, color(w, 0x142033, w.app.dark ? 65 : 15),
-                      radius - 1);
-        draw->AddLine({radius, 1}, {end.x - radius, 1}, color(w, 0xFFFFFF, w.app.dark ? 28 : 120));
+                      color(w, w.app.dark ? 0xBAC8DA : 0x697586, card ? 52 : 70), radius);
     }
     switch (w.kind) {
     case Kind::Panel:
@@ -1415,12 +1513,15 @@ void draw_ui(Window &w) {
     case Kind::Draw:
         draw_zone(w);
         break;
+    case Kind::Guides:
+        region_preview(w, w.guide_bounds, w.placement_blocked);
+        break;
     }
     w.popup_open = ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
     if (w.drop_hover) {
         auto d = ImGui::GetForegroundDrawList();
-        d->AddRect({u(w, 2), u(w, 2)}, {w.width - u(w, 2), w.height - u(w, 2)}, color(w, 0x146AB5), u(w, 7),
-                   0, u(w, 2));
+        d->AddRect({u(w, 2), u(w, 2)}, {w.width - u(w, 2), w.height - u(w, 2)}, color(w, 0x488BDD, 130),
+                   u(w, 11), 0, u(w, 1));
     }
     ImGui::End();
     ImGui::PopStyleVar();

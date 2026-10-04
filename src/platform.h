@@ -61,7 +61,7 @@ void shell_rename_batch(HWND owner, const std::vector<std::pair<fs::path, std::s
 std::vector<std::string> data_files(IDataObject *data);
 Json data_payload(IDataObject *data);
 
-enum class Kind { Panel, Launcher, Zone, Draw, Settings };
+enum class Kind { Panel, Launcher, Zone, Draw, Settings, Guides };
 class Application;
 class Window;
 class GlassMaterial {
@@ -86,6 +86,7 @@ struct Hotspot {
     RECT rect{};
     std::string tab, before;
     std::string path;
+    bool folder = false;
 };
 class Window {
   public:
@@ -111,12 +112,19 @@ class Window {
     std::vector<std::string> selection_base;
     std::vector<Hotspot> hotspots;
     POINT drop_point{};
+    RECT grid_rect{};
+    int grid_columns = 1;
+    float grid_scroll = 0;
+    std::vector<std::string> grid_order;
     bool drop_hover = false, drag_in_progress = false;
     POINT drag_start{};
     POINT drag_origin{};
     float initial_x = 0, initial_y = 0, initial_w = 0, initial_h = 0;
     bool moving = false, resizing = false;
     bool geometry_capture = false, geometry_changed = false, surface_dirty = false;
+    bool placement_blocked = false;
+    float drag_scale = 1;
+    RegionRect guide_bounds{};
     bool requested_visible = false, fading_out = false, size_animating = false;
     bool test_animations = false; // Only honored by the isolated UI test runner.
     double opacity_started = 0;
@@ -154,6 +162,7 @@ class Window {
     bool visible() const;
     void invalidate();
     void render();
+    std::optional<GridCell> grid_at(POINT point) const;
     void export_preview(const fs::path &path);
     void theme();
     static LRESULT CALLBACK procedure(HWND hwnd, UINT message, WPARAM wp, LPARAM lp);
@@ -166,14 +175,23 @@ class IconCache {
         ComPtr<ID3D11ShaderResourceView> view;
         uint64_t touched = 0;
         bool queued = false, ready = false;
+        int width = 0, height = 0;
+        std::string path;
+    };
+    struct Request {
+        std::string key, path;
+        int pixels = 0;
+        uint64_t generation = 0;
     };
     std::unordered_map<std::string, Entry> entries;
+    std::unordered_map<std::string, std::string> names;
     std::mutex mutex;
     std::condition_variable condition;
-    std::deque<std::string> requests;
+    std::deque<Request> requests;
     std::thread worker;
     bool stopping = false;
     uint64_t sequence = 0;
+    uint64_t generation = 0;
     ID3D11Device *device;
     HWND notify;
     void run();
@@ -181,7 +199,7 @@ class IconCache {
   public:
     IconCache(ID3D11Device *device, HWND notify);
     ~IconCache();
-    ID3D11ShaderResourceView *get(const std::string &path);
+    ID3D11ShaderResourceView *get(const std::string &path, int pixels = 48);
     std::string display_name(const std::string &path, const std::string &fallback);
     size_t size();
     void clear();
@@ -216,7 +234,7 @@ class Application {
     ComPtr<IDCompositionDevice> composition;
     std::unique_ptr<GlassMaterial> glass;
     std::unique_ptr<IconCache> icons;
-    std::unique_ptr<Window> panel, launcher, settings;
+    std::unique_ptr<Window> panel, launcher, settings, geometry_guide;
     std::vector<std::unique_ptr<Window>> zones, draw_windows;
     std::vector<std::unique_ptr<DirectoryWatch>> watches;
     std::deque<std::function<void()>> actions;
@@ -225,6 +243,7 @@ class Application {
     bool dark = false;
     std::optional<Json> rename_event;
     std::atomic<uint64_t> rendered_frames{0};
+    int render_depth = 0;
     explicit Application(fs::path data, bool test, bool unhosted);
     ~Application();
     int run();
@@ -241,6 +260,8 @@ class Application {
     void toggle_peek();
     void begin_draw();
     void cancel_draw();
+    bool region_available(const Window *source, RegionRect bounds, const Monitor &screen);
+    void show_geometry_guide(Window &source, RegionRect bounds);
     void focus(std::string ident);
     void open(std::string path);
     void archive(std::vector<std::string> ids);

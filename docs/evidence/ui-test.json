@@ -1,5 +1,6 @@
 {
   "mode": "Own ImGui input queue + native HWND/D3D/Shell/file operations",
+  "desktop_hosted": true,
   "passed": true,
   "checks": [
     {
@@ -32,7 +33,7 @@
     },
     {
       "metric": "120 native geometry updates, milliseconds",
-      "value": 239.2553
+      "value": 204.4087
     },
     {
       "name": "Cancelling a captured drag restores geometry and preserves layout",
@@ -72,6 +73,70 @@
     },
     {
       "name": "Fade completion hides the HWND and stops its timer",
+      "pass": true
+    },
+    {
+      "name": "125-percent DPI title drag snaps to the desktop lattice",
+      "pass": true
+    },
+    {
+      "name": "Grid guide preserves the dragged window's capture and focus without a drop target",
+      "pass": true
+    },
+    {
+      "name": "Guide window declines mouse targeting and activation",
+      "pass": true
+    },
+    {
+      "name": "Guide alpha can be inspected in its own GPU render target",
+      "pass": true
+    },
+    {
+      "name": "Guide background is fully transparent and its placement fill remains translucent",
+      "pass": true
+    },
+    {
+      "name": "Region guides allocate a bounded surface instead of a whole-monitor framebuffer",
+      "pass": true
+    },
+    {
+      "name": "Native guide shares the region's desktop host",
+      "pass": true
+    },
+    {
+      "name": "Snapped drag preview leaves persisted region geometry untouched",
+      "pass": true
+    },
+    {
+      "name": "Snapped release hides its guide and queues one commit",
+      "pass": true
+    },
+    {
+      "name": "Region snap coordinates persist in logical units",
+      "pass": true
+    },
+    {
+      "name": "Region placement survives an independent profile reload",
+      "pass": true
+    },
+    {
+      "name": "Region resizing snaps both dimensions in physical DPI coordinates",
+      "pass": true
+    },
+    {
+      "name": "Cancelling snapped resize restores the original native bounds and removes guides",
+      "pass": true
+    },
+    {
+      "name": "Region snapping at a monitor edge keeps the whole card inside the work area",
+      "pass": true
+    },
+    {
+      "name": "Occupied region footprints are marked as unavailable",
+      "pass": true
+    },
+    {
+      "name": "Release over an occupied footprint restores the previous region placement",
       "pass": true
     },
     {
@@ -176,6 +241,10 @@
     },
     {
       "name": "Drawing creates a region and removes overlays",
+      "pass": true
+    },
+    {
+      "name": "Newly drawn regions use the same position and size lattice",
       "pass": true
     },
     {
@@ -317,7 +386,83 @@
     {
       "name": "Multiple-file F2 uses numbered names and preserves each file type",
       "pass": true
+    },
+    {
+      "name": "Grid test region uses a real native window",
+      "pass": true
+    },
+    {
+      "name": "Pointer maps to the requested physical grid cell",
+      "pass": true
+    },
+    {
+      "name": "Internal grid drag advertises a move and landing preview",
+      "pass": true
+    },
+    {
+      "name": "Landing preview leaves saved positions unchanged until drop",
+      "pass": true
+    },
+    {
+      "name": "Native grid drop keeps the chosen empty cell and preserves other icons and files",
+      "pass": true
+    },
+    {
+      "name": "Rendered icon occupies the persisted destination cell",
+      "pass": true
+    },
+    {
+      "name": "Pointer maps to the requested physical grid cell",
+      "pass": true
+    },
+    {
+      "name": "Occupied non-folder cells remain valid grid targets",
+      "pass": true
+    },
+    {
+      "name": "Occupied-cell drop swaps the resident icon into the vacated cell",
+      "pass": true
+    },
+    {
+      "name": "Pointer maps to the requested physical grid cell",
+      "pass": true
+    },
+    {
+      "name": "Multi-icon native drop preserves the group's relative arrangement",
+      "pass": true
+    },
+    {
+      "name": "Pointer maps to the requested physical grid cell",
+      "pass": true
+    },
+    {
+      "name": "Native external copy lands its new icon in the indicated cell",
+      "pass": true
+    },
+    {
+      "name": "Shell icon cache retains independent physical-size variants",
+      "pass": true
+    },
+    {
+      "name": "125-percent DPI icon rendering uses a high-resolution Shell texture instead of a 32-pixel stretch",
+      "pass": true
+    },
+    {
+      "name": "Native drop positions survive a fresh Engine load",
+      "pass": true
+    },
+    {
+      "name": "Pointer maps to the requested physical grid cell",
+      "pass": true
+    },
+    {
+      "name": "Program shortcut exposes its native Shell drop handler",
+      "pass": true
+    },
+    {
+      "name": "Internal drag over a program shortcut preserves the native Shell effect",
+      "pass": true
     }
   ],
-  "frames": 108
+  "frames": 117
 }

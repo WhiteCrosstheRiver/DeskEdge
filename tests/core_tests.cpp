@@ -147,6 +147,72 @@ int main() {
                 "Ambiguous copies preserve both files and the move journal");
         require(partial.archive({aid}, archives).succeeded == 0 && partial.state["moves"].size() == 1,
                 "Ambiguous moves cannot be retried silently");
+        Engine grid(root / L"grid-state");
+        require(grid.state["settings"].value("window_grid", false) &&
+                    grid.state["settings"].value("card_style", false),
+                "Region snapping and clean cards are enabled on a fresh profile");
+        auto snapped = snap_region({23.2f, 29.1f, 333, 207}, 2048, 1100);
+        require(snapped.x == 24 && snapped.y == 24 && snapped.w == 336 && snapped.h == 216,
+                "Region position and size share the same desktop lattice");
+        auto edge = snap_region({990, 990, 336, 216}, 1000.5f, 800.5f);
+        require(edge.x == 648 && edge.y == 576 && edge.x + edge.w <= 1000.5f && edge.y + edge.h <= 800.5f,
+                "Non-grid monitor edges retain aligned positions and fully visible regions");
+        require(!region_conflict({24, 24, 336, 216}, {384, 24, 336, 216}) &&
+                    region_conflict({24, 24, 336, 216}, {360, 24, 336, 216}),
+                "Region occupancy preserves one lattice cell of breathing room");
+        auto first_region = *grid.zone("projects"), second_region = *grid.zone("papers");
+        require(first_region["w"] == 336 && first_region["h"] == 216 && second_region["y"] == 264,
+                "Legacy region migration avoids shrinking content and resolves neighboring footprints");
+        grid.zone("projects")->at("x") = 0;
+        grid.save();
+        Engine region_reload(root / L"grid-state");
+        require(region_reload.zone("projects")->at("x") == 0,
+                "A valid region placement survives reload without repeating the migration magnet");
+        grid.state["settings"]["window_grid"] = false;
+        grid.zone("projects")->at("x") = 17.5f;
+        grid.save();
+        require(grid.zone("projects")->at("x") == 17.5f,
+                "Disabling region snapping preserves free positions");
+        grid.zone("projects")->at("x") = 24;
+        grid.state["settings"]["window_grid"] = true;
+        require(grid.state["settings"].value("grid_mode", false), "Grid occupancy is enabled by default");
+        auto ga = grid.add_file(file(desktop, L"grid-a.txt"), "projects");
+        auto gb = grid.add_file(file(desktop, L"grid-b.txt"), "projects");
+        auto gc = grid.add_file(file(desktop, L"grid-c.txt"), "projects");
+        grid.ensure_grid();
+        require(grid.item(ga)->at("grid")["column"] == 0 && grid.item(gb)->at("grid")["column"] == 1,
+                "Unpositioned icons migrate to distinct grid cells");
+        grid.place_grid({ga}, "projects", {3, 2}, 4);
+        require(grid.item(ga)->at("grid") == Json({{"column", 3}, {"row", 2}}) &&
+                    grid.item(gb)->at("grid")["column"] == 1,
+                "Moving to an empty grid cell preserves neighboring positions and holes");
+        grid.save();
+        Engine grid_reload(root / L"grid-state");
+        require(grid_reload.item(ga)->at("grid") == grid.item(ga)->at("grid"),
+                "Manual grid positions survive reload without compaction");
+        grid.place_grid({gb}, "projects", {2, 0}, 4);
+        require(grid.item(gb)->at("grid")["column"] == 2 && grid.item(gc)->at("grid")["column"] == 1,
+                "Occupied grid cell drop swaps into the vacated source cell");
+        grid.place_grid({gb, gc}, "projects", {2, 1}, 4, gc);
+        require(grid.item(gc)->at("grid") == Json({{"column", 2}, {"row", 1}}) &&
+                    grid.item(gb)->at("grid") == Json({{"column", 3}, {"row", 1}}),
+                "Multi-icon drag keeps relative spacing and lands the dragged anchor correctly");
+        grid.place_grid({gc}, "papers", {2, 1}, 4);
+        require(grid.item(gc)->at("zone") == "papers" && grid.item(gc)->at("grid")["row"] == 1,
+                "Cross-zone grid movement keeps the chosen destination cell");
+        auto unchanged = grid.state;
+        auto narrow = grid.zone_grid("projects", 1);
+        require(narrow.size() == 2 && narrow[0].cell.column == 0 && narrow[1].cell.column == 0 &&
+                    narrow[0].cell != narrow[1].cell && grid.state == unchanged,
+                "Narrow resize previews stay unique and do not mutate the saved layout");
+        grid.item(gb)->at("grid") = {{"column", -1}, {"row", "bad"}};
+        grid.ensure_grid();
+        require(grid.item(gb)->at("grid")["column"].get<int>() >= 0,
+                "Malformed saved cells recover to a free position");
+        grid.arrange_grid("projects");
+        require(grid.item(ga)->at("grid") == Json({{"column", 0}, {"row", 0}}) &&
+                    grid.item(gb)->at("grid") == Json({{"column", 1}, {"row", 0}}),
+                "Explicit arrange compacts icons while ordinary updates preserve holes");
         Engine bench(root / L"benchmark");
         auto start = std::chrono::steady_clock::now();
         for (int n = 0; n < 10000; n++)

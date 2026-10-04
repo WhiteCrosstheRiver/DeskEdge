@@ -22,6 +22,7 @@ class DropTarget final : public IDropTarget {
     std::vector<std::string> files;
     fs::path destination;
     std::unordered_set<std::string> before;
+    std::unordered_map<std::string, bool> native_handlers;
     DWORD allowed = 0;
     DWORD drag_button = MK_LBUTTON;
     void hover(POINTL p) {
@@ -30,14 +31,27 @@ class DropTarget final : public IDropTarget {
         window.drop_hover = true;
         window.invalidate();
     }
-    bool metadata(DWORD keys) const {
+    bool native_handler(const Hotspot &spot) {
+        if (spot.folder)
+            return true;
+        auto [entry, inserted] = native_handlers.try_emplace(spot.path, false);
+        if (inserted)
+            try {
+                entry->second = shell_drop_target(wide(spot.path), window.hwnd) != nullptr;
+            } catch (...) {
+                // Ordinary files without a Shell drop handler are grid occupants.
+            }
+        return entry->second;
+    }
+    bool metadata(DWORD keys) {
         if (!internal || keys & (MK_CONTROL | MK_SHIFT) || GetKeyState(VK_MENU) & 0x8000)
             return false;
         if (window.kind == Kind::Zone)
             for (auto &spot : window.hotspots)
                 if (!spot.path.empty() && PtInRect(&spot.rect, window.drop_point) &&
                     std::none_of(files.begin(), files.end(),
-                                 [&](auto &path) { return path_equal(path, spot.path); }))
+                                 [&](auto &path) { return path_equal(path, spot.path); }) &&
+                    native_handler(spot))
                     return false;
         return true;
     }
@@ -66,21 +80,28 @@ class DropTarget final : public IDropTarget {
         }
         return native->DragEnter(object.Get(), keys, p, effect);
     }
-    void regroup() {
+    void regroup(DWORD effect) {
         auto &a = window.app;
         if (a.self_test_ui)
             write_log(a.engine.data_dir, "Shell drop: syncing model");
         a.engine.sync(a.roots, a.archive_root);
+        std::vector<std::string> imported;
         if (window.kind == Kind::Zone && path_equal(pathstr(destination), pathstr(a.roots.at(0)))) {
             std::error_code ec;
             for (auto &e : fs::directory_iterator(destination, ec)) {
                 auto path = pathstr(e.path());
                 bool present = before.contains(lower(path));
                 bool source =
+                    (effect & DROPEFFECT_MOVE) &&
                     std::any_of(files.begin(), files.end(), [&](auto &f) { return path_equal(f, path); });
-                if (!present || source)
-                    a.engine.add_file(e.path(), window.zone_id);
+                if (!present || source) {
+                    auto ident = a.engine.add_file(e.path(), window.zone_id);
+                    if (!ident.empty())
+                        imported.push_back(ident);
+                }
             }
+            if (auto cell = window.grid_at(window.drop_point); cell && !imported.empty())
+                a.engine.place_grid(imported, window.zone_id, *cell, window.grid_columns);
         }
         a.commit();
     }
@@ -108,6 +129,7 @@ class DropTarget final : public IDropTarget {
     HRESULT STDMETHODCALLTYPE DragEnter(IDataObject *data, DWORD keys, POINTL p, DWORD *effect) override {
         try {
             object = data;
+            native_handlers.clear();
             payload = data_payload(data);
             files = data_files(data);
             auto type = payload.is_object() ? payload.value("type", "") : "";
@@ -159,6 +181,8 @@ class DropTarget final : public IDropTarget {
     }
     HRESULT STDMETHODCALLTYPE Drop(IDataObject *data, DWORD keys, POINTL p, DWORD *effect) override {
         auto &a = window.app;
+        window.drop_point = {p.x, p.y};
+        ScreenToClient(window.hwnd, &window.drop_point);
         window.drop_hover = false;
         try {
             if (window.kind == Kind::Launcher || metadata(keys)) {
@@ -189,7 +213,7 @@ class DropTarget final : public IDropTarget {
                     a.modal = false;
                     if (FAILED(hr))
                         throw std::runtime_error("Windows drop: " + win_error(static_cast<DWORD>(hr)));
-                    regroup();
+                    regroup(*effect);
                 }
             }
         } catch (const std::exception &ex) {
